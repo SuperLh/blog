@@ -13,6 +13,7 @@
       * [HashSet（Hash表）](#hashsethash表)
       * [TreeSet（二叉树）](#treeset二叉树)
       * [LinkedHashSet（HashSet+LinkedHashMap）](#linkedhashsethashsetlinkedhashmap)
+    * [HashSet的实现原理](#hashset的实现原理)
   * [Map](#map)
     * [基础数据结构](#基础数据结构-2)
       * [HashMap（数组+链表+红黑树）](#hashmap数组链表红黑树)
@@ -26,6 +27,11 @@
     * [HashMap的哈希函数是如何设计的](#hashmap的哈希函数是如何设计的)
     * [JDK1.8中，HashMap扩容后不需要rehash的原因、HashMap扩容为什么要是2的幂](#jdk18中hashmap扩容后不需要rehash的原因hashmap扩容为什么要是2的幂)
     * [LinkedHashMap的两种排序方式，及利用LinkedHashMap实现LRU算法](#linkedhashmap的两种排序方式及利用linkedhashmap实现lru算法)
+    * [TreeMap的底层实现原理（红黑树后补充）](#treemap的底层实现原理红黑树后补充)
+    * [TreeMap的Key对象为什么一定要实现Compare接口（红黑树后补充）](#treemap的key对象为什么一定要实现compare接口红黑树后补充)
+    * [如何利用TreeMap实现一致性哈希（红黑树后补充）](#如何利用treemap实现一致性哈希红黑树后补充)
+    * [](#)
+    * [ConcurrentHashMap的底层实现原理](#concurrenthashmap的底层实现原理)
 
 
 # 集合
