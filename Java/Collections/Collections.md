@@ -51,7 +51,7 @@
 
 - **HashMap（数组+链表+红黑树）**
 
-  - **HashMap（数组+链表+红黑树）**根据哈希值存储数据，大多数情况下可以直接定位到它的值，具有很快的访问速度，遍历顺序不确定
+  - HashMap（数组+链表+红黑树）**根据哈希值存储数据，大多数情况下可以直接定位到它的值，具有很快的访问速度，遍历顺序不确定
   - HashMap非线程安全
   - HashMap实现方式
     - JDK 1.7：数组+链表
@@ -77,7 +77,7 @@
 
   - 基本原理：HashMap+双向链表
 
-    ![avatar](pics\LinkedHashMap.png)
+    ![avatar](pics/LinkedHashMap.png)
 
 ## 解决哈希冲突的方法
 
