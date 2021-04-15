@@ -6,6 +6,8 @@
       * [ArrayList](#arraylist)
       * [Vector](#vector)
       * [LinkedList](#linkedlist)
+    * [ArrayList和Vector的区别](#arraylist和vector的区别)
+    * [ArrayList和LinkedList的区别](#arraylist和linkedlist的区别)
   * [Set：存储无序，没有重复值](#set存储无序没有重复值)
     * [基础数据结构](#基础数据结构-1)
       * [HashSet（Hash表）](#hashsethash表)
@@ -23,6 +25,7 @@
     * [HashMap怎么设定初始容量的大小](#hashmap怎么设定初始容量的大小)
     * [HashMap的哈希函数是如何设计的](#hashmap的哈希函数是如何设计的)
     * [JDK1.8中，HashMap扩容后不需要rehash的原因、HashMap扩容为什么要是2的幂](#jdk18中hashmap扩容后不需要rehash的原因hashmap扩容为什么要是2的幂)
+    * [LinkedHashMap的两种排序方式，及利用LinkedHashMap实现LRU算法](#linkedhashmap的两种排序方式及利用linkedhashmap实现lru算法)
 
 
 # 集合
@@ -47,6 +50,33 @@
 
 - 内部通过链表实现，适合数据的动态插入和删除，随机访问和遍历比较慢
 - 提供了专门用于操作表头和表尾元素的方法，可以当作堆、栈、队列和双向队列使用
+
+
+
+### ArrayList和Vector的区别
+
+- **同步性**
+  - Vector是线程安全的，ArrayList是非线程安全的
+- **数据增长**
+  - Vector扩容时增长为原来的2倍，ArrayList增长为原来的1.5倍
+  - ArrayList和Vector都能设置初始大小，Vector能设置增长空间的大小，ArrayList不能
+- **性能**
+  - ArrayList在性能方面比要优于Vecotr
+
+
+
+### ArrayList和LinkedList的区别
+
+- **底层原理**
+  - ArrayList是动态数组，LinkedList是双向链表
+- **随机访问效率**
+  - ArrayList在随机访问时的效率要高，LinkedList是线性存储结构，需要移动指针从前往后依次查找
+- **增加和删除效率**
+  - 非首尾操作时，LinkedList效率要高，ArrayList增删操作会影响数组内其他数据的下标
+- **内存空间占比**
+  - LinkedList占用内存要比ArrayList要高
+- **线程安全**
+  - 都不能保证线程安全
 
 
 
@@ -77,6 +107,15 @@
 
   
 
+### HashSet的实现原理
+
+- HashSet是基于HashMap实现的，HashSet的值存放于HashMap的key上
+- HashSet的value统一为PRESENT
+
+
+
+
+
 ## Map
 
 ### 基础数据结构
@@ -91,7 +130,7 @@
 
 #### ConcurrentHashMap
 
-- ConcurrentHashMap线程安全，由一个个Segment组成，Segment通过继承ReentrantLock进行加锁，每次需要枷锁的操作锁住的是一个Segment，保证每个Segment的线程安全
+- ConcurrentHashMap线程安全，由一个个Segment组成，Segment通过继承ReentrantLock进行加锁，每次需要加锁的操作锁住的是一个Segment，保证每个Segment的线程安全
 - ConcurrentHashMap一共有16个Segment，最多同时支持16个线程并发，这个值可以在初始化的时候设置，但是一旦初始化以后，是不支持扩容的
 
 #### HashTable
@@ -122,7 +161,7 @@
 
 ### JDK1.7和JDK1.8版本中HashMap的对比
 
-- **实现原理：**
+- **实现原理**
   - JDK1.7：数组+链表
   - JDK1.8：数组+链表+红黑树
 - **链表插入方式**
@@ -181,3 +220,115 @@
 	
 	数组大小16		0001 0101	&	0000 1111	=	0000 0101
 	数组大小32		0001 0101	&	0001 1111	=	0001 0101	(比扩容前大)
+
+
+
+### LinkedHashMap的两种排序方式，及利用LinkedHashMap实现LRU算法
+
+- 两种排序方式
+  - 按插入顺序(accessOrder = false)
+  - 按最近获取顺序(accessOrder = true)
+- LinkedHashMap实现LRU(Least Recently Used)算法
+
+```java
+public class LRUCache<K, V> extends LinkedHashMap<K, V> {
+    
+    private static final int MAX_NODE_NUM = 100;
+
+	private int limit;
+
+	public LRUCache() {
+        this(MAX_NODE_NUM);
+    }
+
+	public LRUCache() {
+        super(limit, 0.75f, true);
+        this.limit = limit;
+    }
+
+	public V save(K key, V value) {
+        return put(key, val);
+    }
+
+	punlic V getOne(K key) {
+        return get(key);
+    }
+
+	public boolean exists(K key) {
+        return containsKey(key);
+    }
+    
+    @override
+    protected boolean removeEldesEntry(Map.Entry<K, V> eldest) {
+        return size() > limit;
+    }
+}
+```
+
+
+
+### TreeMap的底层实现原理（红黑树后补充）
+
+参考连接：http://www.tianxiaobo.com/categories/
+
+### TreeMap的Key对象为什么一定要实现Compare接口（红黑树后补充）
+
+参考连接：http://www.tianxiaobo.com/categories/
+
+### 如何利用TreeMap实现一致性哈希（红黑树后补充）
+
+参考连接：http://www.tianxiaobo.com/categories/
+
+### 
+
+### ConcurrentHashMap的底层实现原理
+
+- JDK1.7
+
+  - **数组+Segment+分段锁**
+
+    ![avatar](pics/ConcurrentHashMap.png)
+
+    
+
+    采用分段式锁的方式，把全局加锁的方式变为局部加锁
+
+  - **优点**
+
+    - 写操作时，可以只对元素所在的Segment段进行加锁，不会影响到其余的Segment，最理想的情况下可以同时支持Segment数量大小的写操作
+
+  - **缺点**
+
+    - Hash的过程要比普通的HashMap长，需要经过两次hash计算，分别计算所处的Segment和HashEntry
+    - 分段锁会形成很多段，浪费内存空间（不连续，碎片化）
+
+    
+
+- JDK1.8
+
+  - **数组+链表+红黑树，内部采用大量CAS操作,synchronized操作来保证线程安全**
+  - **put实现**
+    - 如果相应位置的Node还未初始化，则通过CAS插入相应的数据
+    - 如果相应的Node位置不为空，且该节点不处于移动状态，则对该节点加synchronized锁，如果该节点的hash不小于0，则遍历链表更新节点或插入新节点
+    - 如果该节点是TreeBin类型的节点，说明是红黑树结构，则通过putTreeVal方法往红黑树中插入节点
+    - 如果binCount不为0，说明put操作对数据产生了影响，如果当前链表个数达到8个，则通过treeifyBin方法转化为红黑树，如果oldVal不为空，说明是一次更新，没有对元素个数产生影响，则直接返回旧值
+    - 如果插入的是一个新的节点，则执行addCount()方法更新元素个数binCount
+
+
+
+- **总结**
+  - **数据结构**
+    - 取消Segment分段锁，用数组+链表+红黑树替代
+  - **保证线程安全**
+    - 取消Segment分段锁，用CAS+Synchronized替代
+  - **锁的粒度**
+    - JDK1.7锁的是Segment，JDK1.8锁的是Node
+  - **链表转化为红黑树**
+    - 定位hash算法简化，导致hash冲突加剧，所以用红黑树替代链表
+  - **查询时间复杂度**
+    - 由遍历链表O(n)，变为遍历红黑树0(logN)
+  - **扩容**
+    - JDK1.8中多线程参与扩容，每个线程操作16个hash桶
+    - 对于读操作，如果当前节点有数据，还没迁移完成，此时不影响读，能够正常进行。如果当前链表已经迁移完成，此时get线程会帮助扩容。
+    - 对于写操作，如果当前链表已经迁移完成，此时写线程会帮助扩容，如果扩容没有完成，当前链表的头节点会被锁住，所以写线程会被阻塞，直到扩容完成。
+
