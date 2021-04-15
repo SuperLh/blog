@@ -3,26 +3,26 @@
 * [集合](#集合)
   * [List：有序的Collection](#list有序的collection)
     * [基础数据结构](#基础数据结构)
-      * [**ArrayList**](#arraylist)
+      * [ArrayList](#arraylist)
       * [Vector](#vector)
       * [LinkedList](#linkedlist)
-  * [Set：**存储无序，没有重复值**](#set存储无序没有重复值)
+  * [Set：存储无序，没有重复值](#set存储无序没有重复值)
     * [基础数据结构](#基础数据结构-1)
-      * [**HashSet（Hash表）**](#hashsethash表)
-      * [**TreeSet（二叉树）**](#treeset二叉树)
-      * [**LinkedHashSet（HashSet+LinkedHashMap）**](#linkedhashsethashsetlinkedhashmap)
+      * [HashSet（Hash表）](#hashsethash表)
+      * [TreeSet（二叉树）](#treeset二叉树)
+      * [LinkedHashSet（HashSet+LinkedHashMap）](#linkedhashsethashsetlinkedhashmap)
   * [Map](#map)
     * [基础数据结构](#基础数据结构-2)
-      * [**HashMap（数组+链表+红黑树）**](#hashmap数组链表红黑树)
-      * [**ConcurrentHashMap**](#concurrenthashmap)
-      * [**HashTable**](#hashtable)
-      * [**TreeMap**](#treemap)
-      * [**LinkedHashMap**](#linkedhashmap)
+      * [HashMap（数组+链表+红黑树）](#hashmap数组链表红黑树)
+      * [ConcurrentHashMap](#concurrenthashmap)
+      * [HashTable](#hashtable)
+      * [TreeMap](#treemap)
+      * [LinkedHashMap](#linkedhashmap)
     * [解决哈希冲突的方法](#解决哈希冲突的方法)
     * [JDK1.7和JDK1.8版本中HashMap的对比](#jdk17和jdk18版本中hashmap的对比)
     * [HashMap怎么设定初始容量的大小](#hashmap怎么设定初始容量的大小)
     * [HashMap的哈希函数是如何设计的](#hashmap的哈希函数是如何设计的)
-    * [JDK1.8中，HashMap扩容后不需要rehash的原因、HashMap扩容为什么要是2**的幂**](#jdk18中hashmap扩容后不需要rehash的原因hashmap扩容为什么要是2的幂)
+    * [JDK1.8中，HashMap扩容后不需要rehash的原因、HashMap扩容为什么要是2的幂](#jdk18中hashmap扩容后不需要rehash的原因hashmap扩容为什么要是2的幂)
 
 
 # 集合
@@ -31,7 +31,7 @@
 
 ### 基础数据结构
 
-#### **ArrayList**
+#### ArrayList
 
 - 内部通过数组实现，允许对元素进行快速随机访问
 - 数组缺点是每个元素间不能有间隔，当数组大小不满足时需要增加存储能力，就要将已经有数组的数据复制到新的存储空间中
@@ -50,24 +50,24 @@
 
 
 
-## Set：**存储无序，没有重复值**
+## Set：存储无序，没有重复值
 
 ### 基础数据结构
 
-#### **HashSet（Hash表）**
+#### HashSet（Hash表）
 
 - 存放的是哈希值
 - 存储元素的顺序并不是按照存入时的顺序，而是按照哈希值来存的
 - HashSet首先判断两个元素的哈希值，如果不同则存储，如果相同，在用equals方法判断是否为同一对象
 
-#### **TreeSet（二叉树）**
+#### TreeSet（二叉树）
 
 - 使用二叉树的原理，对新增加的对象按照指定的顺序排序，每增加一个对象都会进行排序，将对象插入二叉树的指定位置
 - Integer和String对象都可以进行默认的TreeSet排序，自定义的类必须实现Comparable接口，重写compareTo才可以使用
 - 重写compareTo，要返回相应的值才能使TreeSet按照一定的规则排序
 - 比较对象与指定对象的顺序，该对象小于、等于、或大于指定对象，分别返回负整数、零、正整数
 
-#### **LinkedHashSet（HashSet+LinkedHashMap）**
+#### LinkedHashSet（HashSet+LinkedHashMap）
 
 - 继承HashSet，基于LinkedHashMap实现
 
@@ -81,7 +81,7 @@
 
 ### 基础数据结构
 
-#### **HashMap（数组+链表+红黑树）**
+#### HashMap（数组+链表+红黑树）
 
 - HashMap（数组+链表+红黑树）**根据哈希值存储数据，大多数情况下可以直接定位到它的值，具有很快的访问速度，遍历顺序不确定
 - HashMap非线程安全
@@ -89,21 +89,21 @@
   - JDK 1.7：数组+链表
   - JDK 1.8：数组+链表+红黑树
 
-#### **ConcurrentHashMap**
+#### ConcurrentHashMap
 
 - ConcurrentHashMap线程安全，由一个个Segment组成，Segment通过继承ReentrantLock进行加锁，每次需要枷锁的操作锁住的是一个Segment，保证每个Segment的线程安全
 - ConcurrentHashMap一共有16个Segment，最多同时支持16个线程并发，这个值可以在初始化的时候设置，但是一旦初始化以后，是不支持扩容的
 
-#### **HashTable**
+#### HashTable
 
 - 线程安全，遗留类，不需要线程安全的场景用HashMap替换，需要线程安全的场景用ConcurrentHashMap替换
 
-#### **TreeMap**
+#### TreeMap
 
 - 实现SortedMap接口，能够恩据键排序，默认是按键值的升序，也可以指定排序的比较器
 - 在使用TreeMap时，key必须实现Comparable接口，或者在构造TreeMap的时候传入自定义的Comparator
 
-#### **LinkedHashMap**
+#### LinkedHashMap
 
 - 有序的HashMap
 
@@ -173,7 +173,7 @@
 
 
 
-### JDK1.8中，HashMap扩容后不需要rehash的原因、HashMap扩容为什么要是2**的幂**
+### JDK1.8中，HashMap扩容后不需要rehash的原因、HashMap扩容为什么要是2的幂
 
 					原始索引		 数组大小
 	数组大小16		0000 0101	&	0000 1111	=	0000 0101
