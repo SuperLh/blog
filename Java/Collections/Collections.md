@@ -30,7 +30,6 @@
     * [TreeMap的底层实现原理（红黑树后补充）](#treemap的底层实现原理红黑树后补充)
     * [TreeMap的Key对象为什么一定要实现Compare接口（红黑树后补充）](#treemap的key对象为什么一定要实现compare接口红黑树后补充)
     * [如何利用TreeMap实现一致性哈希（红黑树后补充）](#如何利用treemap实现一致性哈希红黑树后补充)
-    * [](#)
     * [ConcurrentHashMap的底层实现原理](#concurrenthashmap的底层实现原理)
 
 
@@ -285,7 +284,7 @@ public class LRUCache<K, V> extends LinkedHashMap<K, V> {
 
 参考连接：http://www.tianxiaobo.com/categories/
 
-### 
+
 
 ### ConcurrentHashMap的底层实现原理
 
