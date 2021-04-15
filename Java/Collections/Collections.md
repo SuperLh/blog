@@ -77,7 +77,7 @@
 
   - 基本原理：HashMap+双向链表
 
-    ![avatar](E:\Private\md\集合\pics\LinkedHashMap.png)
+    ![avatar](pics\LinkedHashMap.png)
 
 ## 解决哈希冲突的方法
 
