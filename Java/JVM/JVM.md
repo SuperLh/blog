@@ -84,19 +84,19 @@ JVM是按需动态加载，采用双亲委派机制。自底向下检查该类�
 - 解决方法：使用缓存行对齐的方式
 
   ```java
-    	// 缓存行未对齐
-  	private static class T {
-          public volatile long x = 0L;
-      }
+  // 缓存行未对齐
+  private static class T {
+  	public volatile long x = 0L;
+  }
   
-  	// 缓存行对齐
-      private static class Padding {
-          public volatile long p1, p2, p3, p4, p5, p6, p7;
-      }
+  // 缓存行对齐
+  private static class Padding {
+  	public volatile long p1, p2, p3, p4, p5, p6, p7;
+  }
   
-      private static class T extends Padding {
-          public volatile long x = 0L;
-      }	
+  private static class T extends Padding {
+  	public volatile long x = 0L;
+  }	
   ```
 
 
@@ -321,7 +321,7 @@ JVM是按需动态加载，采用双亲委派机制。自底向下检查该类�
 
 ### JVM内存模型
 
-![avatar](pics\jvm_memory.jpg)
+![avatar](pics/jvm_memory.jpg)
 
 - **线程私有区域：生命周期与线程相同，依赖线程的启动/结束而创建/销毁**
   - **程序计算器**
