@@ -554,10 +554,10 @@ JDK诞生，Serial追随，为了提高效率，诞生了PS，为了配合CMS，
 
 - JConsole用IP,端口，用户名，密码连接，观察即可
 
-  ​	 ![avatar](pics\jconsole.png)
+  ​	 ![avatar](pics/jconsole.png)
 
 
-  ​	  ![avatar](pics\jconsole_detail.png) 
+  ​	  ![avatar](pics/jconsole_detail.png) 
 
   
 
@@ -588,7 +588,7 @@ JDK诞生，Serial追随，为了提高效率，诞生了PS，为了配合CMS，
 
 - JVisualvm通过远程IP连接，观察即可
 
-  ![avatar](pics\jvisualvm.png)	
+  ![avatar](pics/jvisualvm.png)	
 
 ### Arthas(在线排查工具)
 
@@ -600,7 +600,7 @@ JDK诞生，Serial追随，为了提高效率，诞生了PS，为了配合CMS，
 
 - 选择需要监控的Java程序
 
-  ![avatar](pics\arthas_1.png)
+  ![avatar](pics/arthas_1.png)
 
 - Arthas常用命令
 
@@ -623,12 +623,13 @@ JDK诞生，Serial追随，为了提高效率，诞生了PS，为了配合CMS，
 
   - jhat /APP/liuhui/GC.hprof
 
-    ![avatar](pics\jhat_1.png)
+    ![avatar](pics/jhat_1.png)
 
   - 打开网址
 
-    ![avatar](pics\jhat_2.png)
+    ![avatar](pics/jhat_2.png)
 
 - 利用JVisualvm解析hprof文件
 
-  ​	![avatar](pics\jvisualvm_hprof.png)
+  ​	![avatar](pics/jvisualvm_hprof.png)
+
