@@ -523,3 +523,112 @@ JDK诞生，Serial追随，为了提高效率，诞生了PS，为了配合CMS，
   - Promotion Failed
     - 解决方案：保持老年代有足够的空间
     - -XX:CMSInitiatingOccupancyFraction降低这个值，让CMS保证老年代有足够的空间
+
+
+
+## JVM调优
+
+### JVM参数
+
+- 查看默认的JVM参数
+
+  - java -XX:+PrintCommandLineFlags HelloGC
+- 输出GC日志信息
+
+  - java -Xmn10M -Xms40M -Xmx60M -XX:+PrintCommandLineFlags -XX:+PrintGC HelloGC
+
+    - PrintGC：输出GC日志
+    - PrintGCDetails：输出详细GC日志
+    - PrintGCTimeStamps：打印GC时间戳
+    - PrintGCCauses：打印GC发生原因
+- 设置GC日志文件输出
+  - java -Xmn10M -Xms40M -Xmx60M -XX:+PrintCommandLineFlags -XX:+PrintGCCause -Xloggc:/APP/liuhui/logs/HelloGC-gc-%t.log -XX:+UseGCLogFileRotation HelloGC
+
+
+
+### JConsole
+
+- 运行Java程序
+
+  - java -Xmn100M -Xms400M -Xmx600M -Djava.rmi.server.hostname=192.168.146.101 -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=11111 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false HelloGC2
+
+- JConsole用IP,端口，用户名，密码连接，观察即可
+
+  ​	 ![avatar](pics\jconsole.png)
+
+
+  ​	  ![avatar](pics\jconsole_detail.png) 
+
+  
+
+  ### JVisualvm
+
+- 服务端配置
+
+  - 在$JAVA_HOME/bin/下新建策略文件
+
+    ```
+    touch jstatd.all.policy
+    vi jstatd.all.policy 
+    ```
+
+  - 编辑策略文件
+
+    ```
+    grant codebase "file:/APP/software/jdk1.8.0_281/lib/tools.jar" {   
+        permission java.security.AllPermission;   
+    };
+    ```
+
+  - 启动jstatd
+
+    ```
+    ./jstatd -J-Djava.security.policy=./jstatd.all.policy
+    ```
+
+- JVisualvm通过远程IP连接，观察即可
+
+  ![avatar](pics\jvisualvm.png)	
+
+### Arthas(在线排查工具)
+
+- 下载arthas-packaging-3.5.4-bin.zip，并解压
+
+- 运行Java程序：java -Xmn200M -Xms200M -Xmx200M -XX:+PrintGC T15_FullGC_Problem01
+
+- 运行Arthas ：java -jar arthas-boot.jar
+
+- 选择需要监控的Java程序
+
+  ![avatar](pics\arthas_1.png)
+
+- Arthas常用命令
+
+  - jvm：观察jvm信息
+  - dashboard：观察系统情况
+  - heapdump：导出堆内存信息
+  - jad：反编译
+  - redefine：热替换
+
+
+
+### Arthas导出堆内存
+
+- 导出堆内存
+
+  - 进入Arthas，执行命令
+  - heapdump /APP/liuhui/GC.hprof
+
+- 利用jhat进行分析
+
+  - jhat /APP/liuhui/GC.hprof
+
+    ![avatar](pics\jhat_1.png)
+
+  - 打开网址
+
+    ![avatar](pics\jhat_2.png)
+
+- 利用JVisualvm解析hprof文件
+
+  ​	![avatar](pics\jvisualvm_hprof.png)
