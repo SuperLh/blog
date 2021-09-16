@@ -631,5 +631,5 @@ JDK诞生，Serial追随，为了提高效率，诞生了PS，为了配合CMS，
 
 - 利用JVisualvm解析hprof文件
 
-  ​	![avatar](pics/jvisualvm_hprof.png)
+  ![avatar](pics/jvisualvm_hprof.png)
 
