@@ -57,11 +57,11 @@
 
   ​	vi /etc/hosts
 
-  ​		192.168.146.10 master1
-  ​		192.168.146.11 master2
-  ​		192.168.146.12 node1
-  ​		192.168.146.13 node2
-  ​		192.168.146.14 node3
+  ​		192.168.146.10 master1  
+  ​		192.168.146.11 master2  
+  ​		192.168.146.12 node1  
+  ​		192.168.146.13 node2  
+  ​		192.168.146.14 node3  
 
   ​	source /etc/hosts
 
@@ -110,9 +110,9 @@
 
   ​		新增：
 
-  ​			server.1=node1:2888:3888
-  ​			server.2=node2:2888:3888
-  ​			server.3=node3:2888:3888
+  ​			server.1=node1:2888:3888  
+  ​			server.2=node2:2888:3888  
+  ​			server.3=node3:2888:3888  
 
 - 创建数据存储目录
 
@@ -126,7 +126,7 @@
 
   ​	vi /etc/profile
 
-  ​		export ZOOKEEPER_HOME=/APP/software/apache-zookeeper-3.6.1
+  ​		export ZOOKEEPER_HOME=/APP/software/apache-zookeeper-3.6.1  
 
   ​		export PATH=$PATH:$JAVA_HOME/bin:$ZOOKEEPER_HOME/bin
 
@@ -146,15 +146,15 @@
 
   ​	vi hadoop-env.sh
 
-  ​		export HDFS_NAMENODE_USER=root
-  ​		export HDFS_DATANODE_USER=root
-  ​		export HDFS_JOURNALNODE_USER=root
-  ​		export HDFS_ZKFC_USER=root
-  ​		export YARN_RESOURCEMANAGER_USER=root
-  ​		export YARN_NODEMANAGER_USER=root
-  ​		export HDFS_SECONDARYNAMENODE_USER=root
+  ​		export HDFS_NAMENODE_USER=root  
+  ​		export HDFS_DATANODE_USER=root  
+  ​		export HDFS_JOURNALNODE_USER=root  
+  ​		export HDFS_ZKFC_USER=root  
+  ​		export YARN_RESOURCEMANAGER_USER=root  
+  ​		export YARN_NODEMANAGER_USER=root  
+  ​		export HDFS_SECONDARYNAMENODE_USER=root  
 
-  ​		export JAVA_HOME=/APP/software/jdk1.8.0_281
+  ​		export JAVA_HOME=/APP/software/jdk1.8.0_281  
 
 - 修改配置文件
 
@@ -310,8 +310,8 @@
 
   ​	vi /etc/profile
 
-  ​		export JAVA_HOME=/APP/software/jdk1.8.0_281
-  ​		export PATH=$PATH:$JAVA_HOME/bin:$HADOOP_HOME/sbin:$HADOOP_HOME/bin
+  ​		export HADOOP_HOME=/APP/software/hadoop-3.1.4  
+  ​		export PATH=$PATH:$JAVA_HOME/bin:$HADOOP_HOME/sbin:$HADOOP_HOME/bin  
 
   ​	source /etc/profile
 
@@ -380,3 +380,15 @@
 - 观察另一台NameNode，是否成为Active状态
 
   ![avatar](pics/master1_1.png)
+
+
+
+## 后续启动
+
+- 启动ZooKeeper
+
+  ​	zkServer.sh start
+
+- 启动Hadoop
+
+  ​	start-all.sh
