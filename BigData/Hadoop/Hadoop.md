@@ -6,14 +6,19 @@
   - 基础模块
 - Hadoop Distribute File System(HDFS)
   - 分布式文件系统
-- Hadoop Yarn
-  - 资源管理平台
+  
 - Hadoop MapReduce
+
   - 分布式并行己算框架
 
+- Hadoop Yarn
+  - 资源管理平台
+  
+  
 
+# HDFS
 
-## Hadoop的存储模型
+## HDFS的存储模型
 
 - 文件线性按照字节切割成块（block），每块具有offset和id
 - 文件与文件的block大小可以不一样
@@ -81,7 +86,7 @@
 
 
 
-## Hadoop的架构设计
+## HDFS的架构设计
 
 - HDFS是一个主从（Master/Slaves）架构
 - 由一个NameNode和一些DataNode组成
@@ -93,7 +98,7 @@
 
 
 
-## Hadoop的角色功能
+## HDFS的角色功能
 
 - NameNode
   - 完全基于内存存储元数据，目录结构，文件block的映射
@@ -108,7 +113,7 @@
   
   
 
-## Hadoop的元数据持久化
+## HDFS的元数据持久化
 
 ### FSImage+Editslog
 
@@ -215,3 +220,32 @@
 
 
 
+# MapReduce
+
+## MapReduce的工作原理
+
+![avatar](pics/MapReduce_1.jpg) 
+
+
+
+- Map Task
+  - 根据InputFormat将输入文件分为多个splits，每个splits会作为一个Map Task的输入
+  - 每条数据经过map方法，映射成K-V键值对，相同的Key作为一组，调用一次Reduce方法
+- Reduce Task
+  - 每组数据在Reduce方法内进行迭代计算，并将最后结果输出至HDFS
+
+
+
+## MapReduce的Shuffle过程
+
+![avatar](pics/MapReduce_2.jpg)
+
+- Map端的Shuffle阶段
+  - Partition：对于map输出的每一个键值对，系统会计算出相应的partition
+  - Collector：环形数据缓冲区，将K-V-P存储于缓冲区，用于磁盘溢写，减少磁盘IO
+  - Sort：将环形数据缓冲区的数据按照Partition，Key进行升序排序
+  - Spill：将环形数据缓冲区的数据溢写到本地磁盘
+  - Merge：将多次Spill后的文件进行归并排序，合并所有输出结果
+- Reduce端的Shuffle阶段
+  - Copy：复制Map端输出的数据文件
+  - Merge Sort：从多个Map端Copy数据，进行归并排序，合并数据，情况可分为可分为内存-内存，内存-磁盘，磁盘-磁盘
