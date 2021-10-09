@@ -196,3 +196,22 @@
 
 
 
+## Hadoop节点如何进行动态上下线
+
+- 上线
+  - 关闭新增节点的防火墙
+  - 修改集群节点的host文件，增加新增节点的hostname
+  - NameNode增加新增节点的免密码登录
+  - 执行hdfs dfsadmin -refreshNodes（刷新操作）
+  - 更改slaves节点，增加新增节点
+  - 启动DataNode节点
+  - 查看NameNode监控页面是否有新增节点
+- 下线
+  - 修改hdfs-site.xml
+  - 配置hdfs.hosts.exclude中需要下架的机器
+  - 执行hdfs dfsadmin -refreshNodes（刷新操作）
+  - 关闭下架的机器
+  - 机器下线完毕后，修改hdfs-site.xml，一处exclude
+
+
+
