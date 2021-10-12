@@ -260,6 +260,18 @@
             <name>mapreduce.framework.name</name>
     	<value>yarn</value>
         </property>
+        <property>
+            <name>yarn.app.mapreduce.am.env</name>
+            <value>HADOOP_MAPRED_HOME=$HADOOP_HOME</value>
+        </property>
+        <property>
+            <name>mapreduce.map.env</name>
+            <value>HADOOP_MAPRED_HOME=$HADOOP_HOME</value>
+        </property>
+        <property>
+            <name>mapreduce.reduce.env</name>
+            <value>HADOOP_MAPRED_HOME=$HADOOP_HOME</value>
+        </property>
     </configuration>
     ```
 
@@ -294,6 +306,14 @@
         <property>
             <name>yarn.resourcemanager.hostname.rm2</name>
             <value>master2</value>
+        </property>
+            <property>
+            <name>yarn.resourcemanager.webapp.address.rm1</name>
+            <value>master1:8088</value>
+        </property>
+        <property>
+            <name>yarn.resourcemanager.webapp.address.rm2</name>
+            <value>master2:8088</value>
         </property>
     </configuration>
     ```
