@@ -249,3 +249,70 @@
 - Reduce端的Shuffle阶段
   - Copy：复制Map端输出的数据文件
   - Merge Sort：从多个Map端Copy数据，进行归并排序，合并数据，情况可分为可分为内存-内存，内存-磁盘，磁盘-磁盘
+
+
+
+## MapReduce的调度流程 
+
+#### hadoop1.x
+
+- Client
+
+  - 根据每次的计算数据，询问NameNode元数据，得到Splits清单
+  - 生成计算程序运行时需要的相关配置文件
+  - 调用JobTracker，通知要启动一个计算程序，并且告知程序和配置文件放在了HDFS位置
+
+- JobTracker
+
+  - 从HDFS取回Splits清单
+  - 根据自己收到的TaskTracker汇报的资源，最终确定每一个Split的map/reduce应该在哪个节点执行
+  - 取回分配的任务信息
+
+- TaskTracker
+
+  - 接受任务信息
+  - 从HDFS中下载程序和配置文件到本地
+  - 启动任务描述中的MapTask/ReduceTask
+
+  
+
+- <font color='red'>**JobTracker问题**</font>
+
+  - 容易造成单点故障
+  - 单点压力过大
+  - 集成了【资源管理和任务调度】两者耦合
+    - 未来新的计算框架不能复用资源管理，重复造轮子
+    - 各自实现资源管理，但是隔离，不能感知到对方的使用情况，造成资源争抢
+
+#### hadoop2.x（Yarn）
+
+- Client
+  - 任务调度
+- ResourceManager
+  - 负责整体资源的管理
+- NodeManager
+  - 提交自己的资源情况
+
+
+
+- 调度流程
+  - Client询问NameNode得到Splits清单，并将程序，配置文件上传到HDFS，访问ResourceManager申请ApplicationMaster
+  - ResourceManager选择一台不忙的节点通知NameNode启动一个Container，在里面反射形成一个ApplicationMaster
+  - 启动ApplicationMaster，从HDFS下载切片清单，向ResourceManager申请资源
+  - 由ResourceManager根据自己掌握的资源情况得到一个确定清单，通知NameNode来启动Container
+  - Container启动会反向注册到ApplicationMaster
+  - ApplicationMaster最近将任务Task发送到Container
+  - Container会反射相应的Task类，调用方法执
+  - 计算框架中对Task失败，都拥有重试的机制
+
+ 
+
+- <font color='red'>**解决问题**</font>
+  - 单点故障（曾经的JobTracker是全局，如果JobTracker发生故障，整个计算层不能再进行调度）
+    - Yarn架构，每个Application拥有自己的ApplicationMaster
+    - Yarn架构支持ApplicationMaster的失败重试
+  - 单点压力过大（JobTracker只有一个，多个任务时，所有的调度都由一个JobTracker完成）
+    - Yarn架构，每个任务都有对应的ApplicationMaster，每个ApplicationMaster只负责自己任务的调度
+    - ApplicationMaster在不同节点中启动，默认拥有了负载的光环
+  - 集成了【资源管理和任务调度】两者耦合
+    - Yarn架构，只是资源管理，不负责具体的任务调度
