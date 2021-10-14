@@ -283,6 +283,8 @@
   - 集成了【资源管理和任务调度】两者耦合
     - 未来新的计算框架不能复用资源管理，重复造轮子
     - 各自实现资源管理，但是隔离，不能感知到对方的使用情况，造成资源争抢
+    
+    
 
 #### hadoop2.x（Yarn）
 
@@ -316,3 +318,50 @@
     - ApplicationMaster在不同节点中启动，默认拥有了负载的光环
   - 集成了【资源管理和任务调度】两者耦合
     - Yarn架构，只是资源管理，不负责具体的任务调度
+
+
+
+## MapReduce任务的提交方式
+
+### 集群模式
+
+- maven进行package打包jar（不需要hadoop依赖），上传到集群中的某一个节点
+
+- 执行提交命令：hadoop jar xx.jar xxx 
+
+  - hadoop jar hadoop_test.jar com.tommy.mr.WordCount /input /output
+
+  
+
+### 集群模式（IDEA集成）
+
+- 配置文件设置windows执行
+  - conf.set("mapreduce.app-submission.cross-platform", "true");
+- 设置jar包路径，需要将该jar推送到hdfs
+  - job.setJar("D:\\Code\\hadoop_test\\target\\hadoop_test-1.0-SNAPSHOT.jar");
+- maven进行package打包jar（不需要hadoop依赖）
+- IDEA中直接运行主类
+
+
+
+### 本地模式
+
+- 配置文件设置本地模式运行
+  - conf.set("mapreduce.framework.name", "local");
+- 配置文件设置windows执行
+  - conf.set("mapreduce.app-submission.cross-platform", "true");
+- 本地解压hadoop
+- 下载winutils，覆盖到hadoop/bin目录
+- 环境变量配置HADOOP_HOME
+- IDEA中直接运行主类
+
+
+
+## MapReduce参数个性化
+
+```java
+//工具类帮我们把-D 等等的属性直接set到conf，会留下commandOptions
+GenericOptionsParser parser = new GenericOptionsParser(conf, args);
+String[] othargs = parser.getRemainingArgs();
+```
+
