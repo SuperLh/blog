@@ -365,3 +365,11 @@ GenericOptionsParser parser = new GenericOptionsParser(conf, args);
 String[] othargs = parser.getRemainingArgs();
 ```
 
+
+
+## MapReduce源码详解
+
+### https://www.cnblogs.com/simon-1024/p/14872322.html
+
+https://blog.csdn.net/xingliang_li/article/details/53285447
+
