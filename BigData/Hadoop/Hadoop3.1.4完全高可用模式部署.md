@@ -160,7 +160,7 @@
 
   - core-site.xml
 
-    ```
+    ```xml
     <configuration>
         <property>
             <name>fs.defaultFS</name>
@@ -179,7 +179,7 @@
 
   - hdfs-site.xml
 
-    ```
+    ```xml
     <configuration>
         <property>
             <name>dfs.replication</name>
@@ -254,7 +254,7 @@
 
   - mapred-site.xml
 
-    ```
+    ```xml
     <configuration>
         <property>
             <name>mapreduce.framework.name</name>
@@ -277,7 +277,7 @@
 
   - yarn-site.xml
 
-    ```
+    ```xml
     <configuration>
         <property>
             <name>yarn.nodemanager.aux-services</name>

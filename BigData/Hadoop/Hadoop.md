@@ -76,7 +76,7 @@
 
 - 编辑core-site.xml
 
-  ```
+  ```xml
   <property>
   	<name>topology.script.file.name</name>
   	<value>/hadoop-2.6.0-cdh5.14.0/hadoop/etc/hadoop/RackAware.py</value>
@@ -367,9 +367,416 @@ String[] othargs = parser.getRemainingArgs();
 
 
 
-## MapReduce源码详解
+## MapReduce源码详解(基于Hadoop3.1.4)
 
-### https://www.cnblogs.com/simon-1024/p/14872322.html
+### Job
 
-https://blog.csdn.net/xingliang_li/article/details/53285447
+- 主程序中调用方法job.waitForCompletion(true)，进入到Job.java，查看waitForCompletion()方法
+
+  ```java
+  // line : 1584
+  public boolean waitForCompletion(boolean verbose) throws IOException, InterruptedException, ClassNotFoundException {
+  	// 提交任务
+  	if (state == JobState.DEFINE) {
+  		submit()
+  	}
+  }
+  ```
+
+- 进入Job.java，查看submit()方法
+
+  ```java
+  // line : 1560
+  public void submit() throws IOException, InterruptedException, ClassNotFoundException {
+  	// 确定未定义状态
+  	ensureState(JobState.DEFINE);
+  	// 设置调用新的API
+      setUseNewAPI();
+      // 连接
+      connect();
+      // 初始化任务提交器
+      final JobSubmitter submitter = getJobSubmitter(cluster.getFileSystem(), cluster.getClient());
+      status = ugi.doAs(new PrivilegedExceptionAction<JobStatus>() {
+        	public JobStatus run() throws IOException, InterruptedException, 
+        	ClassNotFoundException {
+        		// 提交任务
+          	return submitter.submitJobInternal(Job.this, cluster);
+        	}
+      });
+      state = JobState.RUNNING;
+      LOG.info("The url to track the job: " + getTrackingURL());
+  }
+  ```
+
+- 进入JobSubmitter.java，查看submitJobInternal()方法
+
+  ```java
+  // line : 139
+  JobStatus submitJobInternal(Job job, Cluster cluster) throws ClassNotFoundException, InterruptedException, IOException {
+      
+  	............
+          
+  	// 重点关注切片方法，line : 198
+  	// Create the splits for the job
+  	LOG.debug("Creating splits at " + jtFs.makeQualified(submitJobDir));
+  	// 切片
+      int maps = writeSplits(job, submitJobDir);
+      // map任务数，对应切片数
+      conf.setInt(MRJobConfig.NUM_MAPS, maps);
+      LOG.info("number of splits:" + maps); 
+      
+      ............
+          
+  }
+  ```
+
+- 进入JobSubmitter.java，查看writeSplits()方法
+
+  ```java
+  // line : 321
+  private int writeSplits(org.apache.hadoop.mapreduce.JobContext job, Path jobSubmitDir) 
+  	throws IOException, InterruptedException,ClassNotFoundException {
+  	JobConf jConf = (JobConf)job.getConfiguration();
+      int maps;
+      if (jConf.getUseNewMapper()) {
+        maps = writeNewSplits(job, jobSubmitDir);
+      } else {
+        maps = writeOldSplits(jConf, jobSubmitDir);
+      }
+      return maps;
+  }
+  ```
+
+- 进入JobSubmitter.java，查看writeNewSplits()方法
+
+  ```java
+  // line : 303
+  private <T extends InputSplit> int writeNewSplits(JobContext job, Path jobSubmitDir) throws IOException,
+  	InterruptedException, ClassNotFoundException {
+      Configuration conf = job.getConfiguration();
+      
+      // 通过反射获取InputFormat，默认是TextInputFormat
+      InputFormat<?, ?> input = ReflectionUtils.newInstance(job.getInputFormatClass(), conf);
+  
+      // 重点：进行切片
+      List<InputSplit> splits = input.getSplits(job);
+      T[] array = (T[]) splits.toArray(new InputSplit[splits.size()]);
+  
+      // sort the splits into order based on size, so that the biggest
+      // go first
+      Arrays.sort(array, new SplitComparator());
+      JobSplitWriter.createSplitFiles(jobSubmitDir, conf, jobSubmitDir.getFileSystem(conf), array);
+          
+      // 返回数组长度，即切片个数为mapTask数
+      return array.length;
+  }
+  ```
+
+- getSplits()是个接口方法，进入到FileInputFormat实现类，查看getSplits()方法
+
+  ```java
+  // line : 389
+  public List<InputSplit> getSplits(JobContext job) throws IOException {
+  	StopWatch sw = new StopWatch().start();
+      
+      // 默认为1
+      long minSize = Math.max(getFormatMinSplitSize(), getMinSplitSize(job));
+      // 默认Long.MAX_VALUE
+      long maxSize = getMaxSplitSize(job);
+      
+      // 忽略子文件夹
+      boolean ignoreDirs = !getInputDirRecursive(job)
+        && job.getConfiguration().getBoolean(INPUT_DIR_NONRECURSIVE_IGNORE_SUBDIRS, false);
+      
+      // 遍历文件
+      for (FileStatus file: files) {
+  		// 子文件夹
+  	   	if (ignoreDirs && file.isDirectory()) {
+          	continue;
+        	}
+        	// 文件路径
+        	Path path = file.getPath();
+        	// 文件长度
+        	long length = file.getLen();
+          
+        	if (length != 0) {
+          	// 文件块信息
+              BlockLocation[] blkLocations;
+          	if (file instanceof LocatedFileStatus) {
+            		blkLocations = ((LocatedFileStatus) file).getBlockLocations();
+          	} else {
+            		FileSystem fs = path.getFileSystem(job.getConfiguration());
+            		blkLocations = fs.getFileBlockLocations(file, 0, length);
+          	}
+              
+              // 是否可切分
+          	if (isSplitable(job, path)) {
+                  
+                  // 块大小
+            		long blockSize = file.getBlockSize();
+                  // 切片大小
+            		long splitSize = computeSplitSize(blockSize, minSize, maxSize);
+  				// 未切分大小
+            		long bytesRemaining = length;
+                  // SPLIT_SLOP : 1.1
+                  // 未切分大小是切片大小的1.1倍以上，继续进行切片
+            		while (((double) bytesRemaining) / splitSize > SPLIT_SLOP) {
+                      // 计算切片Index
+              		int blkIndex = getBlockIndex(blkLocations, length-bytesRemaining);
+                      // 添加到切片数据集合
+              		splits.add(makeSplit(path, length-bytesRemaining, splitSize,
+                          blkLocations[blkIndex].getHosts(),
+                          blkLocations[blkIndex].getCachedHosts()));
+                      // 计算未切分数据
+              		bytesRemaining -= splitSize;
+            		}
+  			
+              	// 存在未切分数据
+            		if (bytesRemaining != 0) {
+                      // 计算切片Index
+              		int blkIndex = getBlockIndex(blkLocations, length-bytesRemaining);
+                  	// 添加到切片数据集合
+              		splits.add(makeSplit(path, length-bytesRemaining, bytesRemaining,
+                  		blkLocations[blkIndex].getHosts(),
+                      	blkLocations[blkIndex].getCachedHosts()));
+            		}
+              // 不可切分
+          	} else {
+            		if (LOG.isDebugEnabled()) {
+              		// Log only if the file is big enough to be splitted
+              		if (length > Math.min(file.getBlockSize(), minSize)) {
+                			LOG.debug("File is not splittable so no parallelization " + "is possible: " + file.getPath());
+              		}
+  				}
+                  // 添加切片数据集合
+            		splits.add(makeSplit(path, 0, length, blkLocations[0].getHosts(), blkLocations[0].getCachedHosts()));
+          	}
+          // 无数据
+  		} else { 
+          	//Create empty hosts array for zero length files
+          	splits.add(makeSplit(path, 0, length, new String[0]));
+        	}
+      }
+      
+      // Save the number of input files for metrics/loadgen
+      job.getConfiguration().setLong(NUM_INPUT_FILES, files.size());
+      sw.stop();
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Total # of splits generated by getSplits: " + splits.size()
+            + ", TimeTaken: " + sw.now(TimeUnit.MILLISECONDS));
+      }
+      
+      // 返回切片数据集合
+      return splits;
+  }
+  ```
+  
+- getSplits()方法中，调用了computeSplitSize()，计算切片大小
+
+  ```java
+  // line : 459
+  // blockSize : 块大小
+  // minSize : 1
+  // maxSize : Long.MAX_VALUE
+  protected long computeSplitSize(long blockSize, long minSize, long maxSize) {
+  	return Math.max(minSize, Math.min(maxSize, blockSize));
+  }
+  ```
+
+- getSplits()方法中，调用了getBlockIndex()，计算切片索引
+
+  ```java
+  // line : 464
+  // blkLocations : 块位置信息
+  // offset : 当前数据偏移量
+  // 判断当前数据偏移量处于哪个块位置上
+  protected int getBlockIndex(BlockLocation[] blkLocations, long offset) {
+  	for (int i = 0 ; i < blkLocations.length; i++) {
+  		// is the offset inside this block?
+        	if ((blkLocations[i].getOffset() <= offset) && (offset < blkLocations[i].getOffset() + blkLocations[i].getLength())) {
+          	return i;
+        	}
+      }
+      BlockLocation last = blkLocations[blkLocations.length -1];
+      long fileLength = last.getOffset() + last.getLength() -1;
+      throw new IllegalArgumentException("Offset " + offset + " is outside of file (0.." + fileLength + ")");
+  }
+  ```
+
+- getSplits()方法中，调用了makeSplit()，制作切片信息
+
+  ```java
+  // line : 379
+  // 最终切片数据包含信息：文件，偏移量，数据长度，host（机器位置）
+  protected FileSplit makeSplit(Path file, long start, long length, String[] hosts, String[] inMemoryHosts) {
+      return new FileSplit(file, start, length, hosts, inMemoryHosts);
+  }
+  ```
+
+- 当切片大小和块大小不一致时，可能会导致数据向计算移动，如
+
+  - 块大小为4，切片大小为6时，12字节的数据会产生两个MapTask任务，分别产生在B1，B3所在机器中，B1，B3的MapTask任务拉取B2数据
+  - B2的数据被B1，B3所在机器的MapTask并行拉取，分治思想
+
+### MapTask
+
+- 首先进入MapTask.java，查看run()方法
+
+  ```java
+  // line : 311
+  public void run(final JobConf job, final TaskUmbilicalProtocol umbilical) throws IOException, ClassNotFoundException, InterruptedException {
+      
+      this.umbilical = umbilical;
+      
+  	if (isMapTask()) {
+      	// If there are no reducers then there won't be any sort. Hence the map 
+        	// phase will govern the entire attempt's progress.
+        	if (conf.getNumReduceTasks() == 0) {
+              // 没有Reduce阶段，只需要进行Map操作
+          	mapPhase = getProgress().addPhase("map", 1.0f);
+  		} else {
+          	// If there are reducers then the entire attempt's progress will be 
+      	    // split between the map phase (67%) and the sort phase (33%).
+              // 有Reduce阶段，将进度分为两部分，一部分Map，一部分Sort，易于Reduce拉取数据，减少IO
+          	mapPhase = getProgress().addPhase("map", 0.667f);
+  	        sortPhase  = getProgress().addPhase("sort", 0.333f);
+        }
+      }
+  
+      TaskReporter reporter = startReporter(umbilical);
+   
+      boolean useNewApi = job.getUseNewMapper();
+      // 初始化
+      initialize(job, getJobID(), reporter, useNewApi);
+      
+      .....
+          
+  	if (useNewApi) {
+        	runNewMapper(job, splitMetaInfo, umbilical, reporter);
+      } else {
+        	runOldMapper(job, splitMetaInfo, umbilical, reporter);
+      }
+      done(umbilical, reporter);
+  }
+  ```
+
+- 进入到MapTask.java，查看runNewMapper()方法
+
+  ```java
+  // line : 744
+  private <INKEY,INVALUE,OUTKEY,OUTVALUE> void runNewMapper(final JobConf job, final TaskSplitIndex splitIndex, 
+  	final TaskUmbilicalProtocol umbilical, TaskReporter reporter) throws IOException, ClassNotFoundException,InterruptedException {
+   
+  	// make a task context so we can get the classes
+      // 初始化taskContext
+      org.apache.hadoop.mapreduce.TaskAttemptContext taskContext =
+          new org.apache.hadoop.mapreduce.task.TaskAttemptContextImpl(job, getTaskID(), reporter);
+      
+  	// make a mapper
+      // 通过反射获取主程序中设置的Mapper类，并进行初始化
+      org.apache.hadoop.mapreduce.Mapper<INKEY,INVALUE,OUTKEY,OUTVALUE> mapper =
+          (org.apache.hadoop.mapreduce.Mapper<INKEY,INVALUE,OUTKEY,OUTVALUE>) ReflectionUtils.newInstance(taskContext.getMapperClass(), job);
+      
+      // make the input format
+      // 通过反射获取主程序中设置的InputFormat类，并进行初始化，默认为TextInputFormat.class
+      org.apache.hadoop.mapreduce.InputFormat<INKEY,INVALUE> inputFormat =
+  		(org.apache.hadoop.mapreduce.InputFormat<INKEY,INVALUE>) ReflectionUtils.newInstance(taskContext.getInputFormatClass(), job);
+      
+  	// rebuild the input split
+      // 读取切片信息
+      org.apache.hadoop.mapreduce.InputSplit split = null;
+      split = getSplitDetails(new Path(splitIndex.getSplitLocation()), splitIndex.getStartOffset());
+      LOG.info("Processing split: " + split);
+      
+      // RecordReader，通过split+inputFormat实现读取每行数据
+  	org.apache.hadoop.mapreduce.RecordReader<INKEY,INVALUE> input =
+          new NewTrackingRecordReader<INKEY,INVALUE>(split, inputFormat, reporter, taskContext);
+      
+      job.setBoolean(JobContext.SKIP_RECORDS, isSkipping());
+      // RecordWriter
+      org.apache.hadoop.mapreduce.RecordWriter output = null;
+      
+      // get an output object
+      if (job.getNumReduceTasks() == 0) {
+        	output = new NewDirectOutputCollector(taskContext, job, umbilical, reporter);
+      } else {
+        	output = new NewOutputCollector(taskContext, job, umbilical, reporter);
+      }
+      
+      // 初始化MapContext，将RecordReader进行赋值
+      org.apache.hadoop.mapreduce.MapContext<INKEY, INVALUE, OUTKEY, OUTVALUE> mapContext = 
+        new MapContextImpl<INKEY, INVALUE, OUTKEY, OUTVALUE>(job, getTaskID(), input, output, committer, reporter, split);
+      
+      // 初始化MapperContext，将MapContext进行赋值，MapperContext中包含了RecordReader
+  	org.apache.hadoop.mapreduce.Mapper<INKEY,INVALUE,OUTKEY,OUTVALUE>.Context mapperContext = 
+            new WrappedMapper<INKEY, INVALUE, OUTKEY, OUTVALUE>().getMapContext(mapContext);
+  
+      // Map流程
+      try {
+          // RecordReader初始化
+        	input.initialize(split, mapperContext);
+          // 执行Map方法
+        	mapper.run(mapperContext);
+  		// Map阶段完成
+          mapPhase.complete();
+          // 开始Sort阶段
+        	setPhase(TaskStatus.Phase.SORT);
+          // 更新状态
+        	statusUpdate(umbilical);
+  		// 关闭流
+        	input.close();
+        	input = null;
+        	output.close(mapperContext);
+        	output = null;
+      } finally {
+        closeQuietly(input);
+        closeQuietly(output, mapperContext);
+      }
+  }
+  ```
+
+- 观察try-catch方法块中的主流程，调用了initialize()方法，进入到LineRecordReader.java，查看initialize()方法
+
+  ```java
+  ```
+
+  
+
+### ReduceTask
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
