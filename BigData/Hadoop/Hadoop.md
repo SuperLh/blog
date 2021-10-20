@@ -1029,22 +1029,29 @@ String[] othargs = parser.getRemainingArgs();
   }
   ```
 
-- 最终Map的输出结果是K,V,P
+- 继续观察output.write()方法，发现output实现类是NewOutputCollector，进入到MapTask.java，查看其内部类NewOutputCollector的write()方法
+
+  ```java
+  // line : 725
+  @Override
+  public void write(K key, V value) throws IOException, InterruptedException {
+  	collector.collect(key, value, partitioner.getPartition(key, value, partitions));
+  }
+  ```
+
+- 发现最终Map的输出结果是K,V,P
+
+
 
 - 环形缓冲区
 
   - 本质是线性的字节数组
   - 定义了分界线，两端分别存放K-V，索引
   - 索引：K-V的索引，固定长度为16个字节，分别储存分区号，K的偏移量，V的偏移量，V的数据长度
-
 - 数据填充到环形缓冲区的80%时，会启动溢写线程
-
-- 对缓冲区中的数据进行排序，快速排序
-
+- 对缓冲区中的数据进行快速排序
 - 排序为二次排序，分区有序，分区内的key有序
-
 - 排序中虽然比较的是key，但是移动的是key的索引，这样在溢写时根据索引取数据，溢写出的数据就是有序数据
-
 - 溢写时，可以进行Combiner的设置
 
   - map端的Reduce，对溢写出的小文件，进行合并，即归并排序，减少Reduce端拉取数据时的IO
@@ -1053,11 +1060,248 @@ String[] othargs = parser.getRemainingArgs();
 
 - <font color="red">**环形缓冲区详解，为什么磁盘写线程和缓冲区写线程不会发生碰撞**</font>
 
-  
+  ![avatar](pics/环形缓冲区.png)
 
 ### ReduceTask
 
+- 首先进入RedcueTask.java，查看run()方法
 
+  ```java
+  // line : 320
+  public void run(JobConf job, final TaskUmbilicalProtocol umbilical) throws IOException, InterruptedException, ClassNotFoundException {
+      
+      job.setBoolean(JobContext.SKIP_RECORDS, isSkipping());
+  
+      // 阶段设置
+      if (isMapOrReduce()) {
+        copyPhase = getProgress().addPhase("copy");
+        sortPhase  = getProgress().addPhase("sort");
+        reducePhase = getProgress().addPhase("reduce");
+      }
+      
+      ............
+      
+      // shuffle的过程
+      codec = initCodec();
+      RawKeyValueIterator rIter = null;
+      ShuffleConsumerPlugin shuffleConsumerPlugin = null;
+      
+      Class combinerClass = conf.getCombinerClass();
+      CombineOutputCollector combineCollector = 
+        (null != combinerClass) ? 
+       new CombineOutputCollector(reduceCombineOutputCounter, reporter, conf) : null;
+  
+      Class<? extends ShuffleConsumerPlugin> clazz =
+            job.getClass(MRConfig.SHUFFLE_CONSUMER_PLUGIN, Shuffle.class, ShuffleConsumerPlugin.class);
+  					
+      shuffleConsumerPlugin = ReflectionUtils.newInstance(clazz, job);
+      LOG.info("Using ShuffleConsumerPlugin: " + shuffleConsumerPlugin);
+  
+      ShuffleConsumerPlugin.Context shuffleContext = 
+        new ShuffleConsumerPlugin.Context(getTaskID(), job, FileSystem.getLocal(job), umbilical, 
+                    super.lDirAlloc, reporter, codec, 
+                    combinerClass, combineCollector, 
+                    spilledRecordsCounter, reduceCombineInputCounter,
+                    shuffledMapsCounter,
+                    reduceShuffleBytes, failedShuffleCounter,
+                    mergedMapOutputsCounter,
+                    taskStatus, copyPhase, sortPhase, this,
+                    mapOutputFile, localMapFiles);
+      shuffleConsumerPlugin.init(shuffleContext);
+  
+      // shuffle完成后，已经把数据拉去回来了。将返回的数据包装成了一个迭代器，真迭代器
+      rIter = shuffleConsumerPlugin.run();
+      
+      ............
+          
+      // 比较器
+      RawComparator comparator = job.getOutputValueGroupingComparator();
+  
+      // 调用新API
+      if (useNewApi) {
+        runNewReducer(job, umbilical, reporter, rIter, comparator, 
+                      keyClass, valueClass);
+      } else {
+        runOldReducer(job, umbilical, reporter, rIter, comparator, 
+                      keyClass, valueClass);
+      }
+  
+      shuffleConsumerPlugin.close();
+      done(umbilical, reporter);
+      
+      ............
+  }
+  ```
+
+- run()方法中调用了runNewReducer()方法，进入到ReduceTask.java，查看runNewReducer()方法
+
+  ```java
+  // line : 576
+  private <INKEY,INVALUE,OUTKEY,OUTVALUE> void runNewReducer(JobConf job, final TaskUmbilicalProtocol umbilical, final TaskReporter reporter,
+  	RawKeyValueIterator rIter, RawComparator<INKEY> comparator, Class<INKEY> keyClass, Class<INVALUE> valueClass ) throws 
+      IOException,InterruptedException, ClassNotFoundException {
+      
+      // wrap value iterator to report progress.
+      final RawKeyValueIterator rawIter = rIter;
+      // 数据输入迭代器
+      rIter = new RawKeyValueIterator() {
+        	public void close() throws IOException {
+          	rawIter.close();
+        	}
+        	public DataInputBuffer getKey() throws IOException {
+          	return rawIter.getKey();
+        	}
+        	public Progress getProgress() {
+          	return rawIter.getProgress();
+        	}
+        	public DataInputBuffer getValue() throws IOException {
+          	return rawIter.getValue();
+        	}
+        	public boolean next() throws IOException {
+          	boolean ret = rawIter.next();
+          	reporter.setProgress(rawIter.getProgress().getProgress());
+          	return ret;
+        	}
+      };
+      
+      // make a task context so we can get the classes
+      // 初始化TaskContext
+      org.apache.hadoop.mapreduce.TaskAttemptContext taskContext = 
+          new org.apache.hadoop.mapreduce.task.TaskAttemptContextImpl(job, getTaskID(), reporter);
+      
+      // make a reducer
+      // 通过反射获取主程序中设置的Reducer类
+      org.apache.hadoop.mapreduce.Reducer<INKEY,INVALUE,OUTKEY,OUTVALUE> reducer =
+        (org.apache.hadoop.mapreduce.Reducer<INKEY,INVALUE,OUTKEY,OUTVALUE>) ReflectionUtils.newInstance(taskContext.getReducerClass(), job);
+      
+      org.apache.hadoop.mapreduce.RecordWriter<OUTKEY,OUTVALUE> trackedRW = new NewTrackingRecordWriter<OUTKEY, OUTVALUE>(this, taskContext);
+      job.setBoolean("mapred.skip.on", isSkipping());
+      job.setBoolean(JobContext.SKIP_RECORDS, isSkipping());
+      
+      // 初始化ReduceContext
+      org.apache.hadoop.mapreduce.Reducer.Context reducerContext = createReduceContext(reducer, job, getTaskID(), rIter, reduceInputKeyCounter,
+  		reduceInputValueCounter, trackedRW, committer, reporter, comparator, keyClass, valueClass);
+      
+      try {
+        	reducer.run(reducerContext);
+      } finally {
+        	trackedRW.close(reducerContext);
+      }
+  }
+  ```
+
+- runNewReducer()方法中，调用了reducer.run()方法，进入到Reducer.java，查看run()方法
+
+  ```java
+  // line : 167
+  public void run(Context context) throws IOException, InterruptedException {
+      setup(context);
+      try {
+        	while (context.nextKey()) {
+          	reduce(context.getCurrentKey(), context.getValues(), context);
+          	// If a back up store is used, reset it
+          	Iterator<VALUEIN> iter = context.getValues().iterator();
+          	if(iter instanceof ReduceContext.ValueIterator) {
+            		((ReduceContext.ValueIterator<VALUEIN>)iter).resetBackupStore();        
+          	}
+        	}
+      } finally {
+        	cleanup(context);
+      }
+  }
+  ```
+
+- run()方法中，调用了context.nextKey()方法，进入ReduceContextImpl.java中，查看nextKey()方法
+
+  ```java
+  // line : 113
+  public boolean nextKey() throws IOException,InterruptedException {
+      // 有下一条记录，切下一条的Key和当前Key相同，则读取下一条
+      while (hasMore && nextKeyIsSame) {
+        	nextKeyValue();
+      }
+      if (hasMore) {
+        	if (inputKeyCounter != null) {
+          	inputKeyCounter.increment(1);
+        	}
+        	return nextKeyValue();
+      } else {
+        	return false;
+      }
+  }
+  ```
+
+- 发现nextKey()方法中，调用了nextKeyValue()方法，进入到ReduceContextImpl.java中，查看nextKeyValue()方法
+
+  ```java
+  // line : 130
+  @Override
+  public boolean nextKeyValue() throws IOException, InterruptedException {
+      
+      if (!hasMore) {
+        	key = null;
+        	value = null;
+        	return false;
+      }
+      
+      firstValue = !nextKeyIsSame;
+      
+      // 获取Key
+      DataInputBuffer nextKey = input.getKey();
+      currentRawKey.set(nextKey.getData(), nextKey.getPosition(), nextKey.getLength() - nextKey.getPosition());
+      buffer.reset(currentRawKey.getBytes(), 0, currentRawKey.getLength());
+      key = keyDeserializer.deserialize(key);
+      // 获取value
+      DataInputBuffer nextVal = input.getValue();
+      buffer.reset(nextVal.getData(), nextVal.getPosition(), nextVal.getLength() - nextVal.getPosition());
+      value = valueDeserializer.deserialize(value);
+  
+      currentKeyLength = nextKey.getLength() - nextKey.getPosition();
+      currentValueLength = nextVal.getLength() - nextVal.getPosition();
+  
+      if (isMarked) {
+        backupStore.write(nextKey, nextVal);
+      }
+      
+  	// 下一条记录
+      hasMore = input.next();
+      if (hasMore) {
+        	nextKey = input.getKey();
+          // 判断是否为同一组
+        	nextKeyIsSame = comparator.compare(currentRawKey.getBytes(), 0, currentRawKey.getLength(), nextKey.getData(),nextKey.getPosition(),
+  			nextKey.getLength() - nextKey.getPosition()) == 0;
+      } else {
+        	nextKeyIsSame = false;
+      }
+      
+      inputValueCounter.increment(1);
+      return true;
+  }
+  ```
+
+- 回过头继续看reducer.run()方法，还调用了context.getValues()方法，进入到ReduceContextImpl.java，查看getValues()方法
+
+  ```java
+  // line : 364
+  public Iterable<VALUEIN> getValues() throws IOException, InterruptedException {
+  	// 返回了一个可迭代对象，这个对象中包含一个迭代器
+      // 这是一个嵌套迭代器，假迭代器
+      // 双迭代器设计模式
+      return iterable;
+  }
+  ```
+  
+- Reduce会把每个MapTask输出的结果拉取过来，相同的key会在同一个分区
+
+- 然后按照key进行归并排序，因为多个MapTask产生的文件，都是内部有序，外部无序的
+
+- 可以根据定义的分组比较器去实现二次排序
+
+- 双迭代器模式
+
+  - rIter可以对整个Reduce端拉取的数据进行迭代，属于真迭代器
+  - Reduce端中的，ValueIterator是一个嵌套迭代器，可以通过调用hasNext()和nextKeysSame()来判断是否下一条记录仍属于当前组
+  - 双迭代器不需要将全部数据都读取到内存中，两个迭代器协作可以实现，一次I/0，线性的的把一组数据全部处理完，有效的避免了OOM
 
 
 

@@ -1,3 +1,17 @@
+# Table of Contents
+
+* [Hadoop3.1.4完全高可用模式部署](#hadoop314完全高可用模式部署)
+  * [准备工作](#准备工作)
+  * [基础设施](#基础设施)
+  * [安装ZooKeeper](#安装zookeeper)
+  * [安装Hadoop](#安装hadoop)
+  * [首次启动](#首次启动)
+  * [集群验证](#集群验证)
+  * [高可用验证](#高可用验证)
+  * [后续启动](#后续启动)
+
+
+
 # Hadoop3.1.4完全高可用模式部署
 
 
@@ -328,14 +342,17 @@
 
 - 配置环境变量
 
-  ​	vi /etc/profile
-
-  ​		export HADOOP_HOME=/APP/software/hadoop-3.1.4  
-  ​		export PATH=$PATH:$JAVA_HOME/bin:$HADOOP_HOME/sbin:$HADOOP_HOME/bin  
-
-  ​	source /etc/profile
-
+  ```python
+  vi /etc/profile
   
+  	export HADOOP_HOME=/APP/software/hadoop-3.1.4  
+  	export PATH=$PATH:$JAVA_HOME/bin:$HADOOP_HOME/sbin:$HADOOP_HOME/bin  
+  
+  source /etc/profile
+  ```
+  
+  
+
 
 ## 首次启动
 
