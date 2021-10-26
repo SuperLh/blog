@@ -286,6 +286,22 @@
             <name>mapreduce.reduce.env</name>
             <value>HADOOP_MAPRED_HOME=$HADOOP_HOME</value>
         </property>
+        <property>
+            <name>mapreduce.jobhistory.address</name>
+            <value>master1:10020</value>
+        </property>
+        <property>
+            <name>mapreduce.jobhistory.webapp.address</name>
+            <value>master1:19888</value>
+        </property>
+        <property>
+            <name>mapreduce.jobhistory.intermediate-done-dir</name>
+            <value>/history/done_intermediate</value>
+        </property>
+        <property>
+            <name>mapreduce.jobhistory.done-dir</name>
+            <value>/history/done</value>
+        </property>
     </configuration>
     ```
 
@@ -328,6 +344,14 @@
         <property>
             <name>yarn.resourcemanager.webapp.address.rm2</name>
             <value>master2:8088</value>
+        </property>
+        <property>
+            <name>yarn.log-aggregation-enable</name>
+            <value>true</value>
+        </property>
+        <property>
+           <name>yarn.nodemanager.vmem-check-enabled</name>
+           <value>false</value>
         </property>
     </configuration>
     ```
@@ -429,3 +453,7 @@
 - 启动Hadoop
 
   ​	start-all.sh
+  
+- 启动JobHistory
+
+  ​	mr-jobhistory-daemon.sh start historyserver
