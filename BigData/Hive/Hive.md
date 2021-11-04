@@ -406,7 +406,28 @@
 
   ```sql
   --创建索引
-  	create index t1_index on table psn2(name) 
+  	create index t1_index on table psn2(name) as 
+  		'org.apache.hadoop.hive.ql.index.compact.CompactIndexHandler' with defered rebuild in table t1_index_table;
+  
+  --as : 指定索引器
+  --in table : 指定索引表
+  
+  --重建索引（建立索引之后）
+  	alter index t1_index on psn rebuild;
+  
+  --删除索引
+  	drop index if exists t1_index on psn2;
+  ```
+  
+
+
+
+## Hive优化
+
+- 查看Hive的执行计划
+
+  ```sql
+  --查看执行计划，添加extened关键字可以查看更加详细的
   ```
 
   
