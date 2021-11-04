@@ -288,6 +288,187 @@
 
 
 
+## Hive动态分区
+
+- hive动态分区介绍
+
+  - 静态分区需要用户在插入数据的时候必须手动指定分区字段值，而且在使用的时候会导致所有的数据都插入到某一个指定分区
+  - 动态分区可以在数据进行插入的时候，根据数据某一个字段值，动态的将数据插入到不同的目录中
+
+- Hive动态分区使用
+
+  - hive动态分区配置
+
+    ```sql
+    --hive设置动态分区开启
+    	set hive.exec.dynamic.partition=true;
+    --hive的动态分区模式
+    	set hive.exec.dynaminc.partition.mode=nostrict;
+    --每一个执行mr节点上，允许创建的分区最大数量（默认100）
+    	set hive.exec.max.dynamic.partitions.pernode;
+    --所有执行mr节点上，允许创建的所有动态分区的最大数量（默认1000）
+    	set hive.exec.max.dynamic.partitions;
+    --所有的mr job允许创建的文件最大数量（默认100000）
+    	set hive.exec.max.created.files;
+    ```
+
+  - hive动态分区语法
+
+    ```sql
+    insert overwrite table "table_name" partiton (partcol1[=val1], partcol2=[val2] ... ) select xxx from "table_name";
+    
+    insert into table "table_name" partition (partcol1[=val1], partcol2[=val2] ... ) select xxx from "table_name";
+    ```
+
+
+
+## Hive分桶
+
+- Hive分桶的介绍
+
+  - hive分桶表是对列值，取hash值的方式，将不同的数据放到不同的文件中存储
+  - 对于hive中的每一个表，每一个分区都可以进行分桶
+  - 由列的hash值取余桶的个数来决定每条数据划分在哪个桶中
+
+- Hive分桶的使用
+
+  - hive分桶的配置
+
+    ```sql
+    --设置hive支持分桶
+    	set hive.enforce.bucketiong=true;
+    ```
+
+  - hive分桶的抽样查询
+
+    ```sql
+    --样例
+    	select * from bucket_table tablesample(bucket 1 out of 4 on columns);
+    --TABLESAMPLE语法
+    	TABLESAMPLE(BUCKET x OUT OF y)
+    		x : 表示从哪个bucket开始抽取数据
+    		y : 表示为该表总bucket数的倍数或因子
+    ```
+
+
+
+## Hive Lateral View
+
+- Hive Lateral View的介绍
+
+  - Lateral View用于和UDTF函数（explode、split）结合使用
+  - 首先通过UDTF函数，拆分成多行，再将多行结果组合成一个支持别名的虚拟表，主要解决在select使用UDTF查询过程中，查询只能包含单个UDTF，不能包含其他字段
+
+- Hive Lateral View的使用
+
+  ```sql
+  select count(distinct(myCol1)),count(distinct(myCol2)) from psn2
+  	LATERAL VIEW explode(likes) myTable1 AS myCol1
+  	LATERAL VIEW explode(address) myTable2 AS myCol2, myCol3;
+  ```
+
+
+
+## Hive视图
+
+- 基本介绍
+
+  - Hive中的视图和RDBMS中视图的概念一致，都是一组数据的逻辑表示，本质上就是一条SELECT语句的结果集
+
+- 特点
+
+  - 不支持物化视图
+  - 只能查询，不能做加载数据操作
+  - 视图的创建，只是保存一份元数据，查询视图时才执行对应的子查询
+  - 视图定义中如果包含了order by、limit语句，当查询视图时，也会进行order by、limit操作
+  - 支持迭代视图
+
+- 视图的使用
+
+  ```sql
+  --创建视图
+  	CREATE VIEW [IF NOT EXISTS] [db_name.]view_name 
+  	  [(column_name [COMMENT column_comment], ...) ]
+  	  [COMMENT view_comment]
+  	  [TBLPROPERTIES (property_name = property_value, ...)]
+  	  AS SELECT ... ;
+  --查询视图
+  	select columsfrom view;
+  --删除视图
+  	drop view [IF EXISTS] [db_name.]view_name;
+  ```
+
+
+
+## Hive索引
+
+- 基本操作
+
+  ```sql
+  --创建索引
+  	create index t1_index on table psn2(name) 
+  ```
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
