@@ -427,10 +427,155 @@
 - 查看Hive的执行计划
 
   ```sql
-  --查看执行计划，添加extened关键字可以查看更加详细的
+  --查看执行计划，添加extened关键字可以查看更加详细的执行计划
+  	explain [extended] query;
+  ```
+  
+- Hive的抓取策略
+
+  - Hive的某些SQL语句需要转换成MapReduce的操作，某些SQL语句不需要转换成MapReduce操作
+
+  - 理论上来说，所有的SQL都需要转换成MapReduce，但是Hive在转换过程中做了部分优化，是某些简单的操作不需要转换成MapReduce，例如
+
+    - select仅支持本表字段
+    - where仅对本表字段做条件过滤
+
+    ```sql
+    --设置Hive的数据抓取策略
+    	set hive.fetch.task.conversion=none/more;
+    ```
+
+- Hive本地模式
+
+  ```sql
+  --设置本地模式
+  	set hive.exec.mode.loacl.auto=true;
+  --设置读取数据量的大小限制
+  	set hive.exec.mode.local.auto.inputbytes.max=128M;
   ```
 
+- Hive并行模式
+
+  - 在SQL语句足够复杂的情况下，可能在一个SQL语句中包含多个子查询语句，且多个子查询语句之间没有任何依赖关系，此时，可以使用Hive的并行度
+
+    ```sql
+    --设置Hive SQL的并行度
+    	set hive.exec.parallel=true;
+    --设置一次SQL计算允许并行执行的job个数的最大值
+    	set hive.exec.parallel.thread.number;
+    ```
+
+- Hive严格模式
+
+  - 对于分区表，必须添加where对于分区字段的条件过滤
+
+  - order by语句必须包含limit输出限制
+
+  - 限制执行笛卡尔积的查询
+
+    ```sql
+    --设置Hive的严格模式
+    	set hive.mapred.mode=strict;
+    ```
+
+- Hive排序
+
+  - Order by：对于查询结果做全排序，只允许有一个Reduce进行处理（数据量大时，慎用）
+  - Sort by：对于单个Reduce的数据进行排序
+  - Distribute by：分区排序，经常和Sort by结合使用
+  - Cluster by：相当于Sort by + Distribute by
+
+- Hive join
+
+  - Hive在多个表的join操作时尽可能多的使用相同的连接键，这样在转换MapReduce任务时，会转换成更少的MapReduce任务
+
+  - 手动Map Join：在map端完成join操作
+
+    ```sql
+    --SQL方式，在SQL语句中添加MapJoin标记（mapjoin hint）
+    	select /*+ MAPJOIN(smallTable) */ smallTable.key,bigTable.value from 
+    		smallTable join bigTable on smallTable.key = bigTable.key
+    ```
+
+  - 开启自动的Map Join
+
+    ```sql
+    --通过修改以下配置启用自动的mapjoin
+    --该参数为true时，Hive自动对左边的表统计数据量，如果是小表就加入内存，即对小表使用Map Join
+    	set hive.auto.convert.join = true;
+    --大表小表判断的阈值
+    	set hive.mapjoin.smalltable.filesize;
+    --是否忽略mapjoin hint，即mapjoin标记
+    	set hive.ignore.mapjoin.hint;
+    ```
+
+  - 大表join大表
+
+    - 空key过滤
+      - 有时join超时是因为某些key对应的数据太多，而相同key对应的数据都会发送到相同的reducer，从而导致内存不够
+      - 很多情况下，这些key对应的数据是异常数据，我们需要在SQL语句进行中过滤
+    - 空key转换
+      - 有时虽然某个key为空对应的数据很多，但是相应的数据不是异常数据，必须要包含在join的结果中
+      - 此时我们可以把表A中key为空的字段赋值一个随机值，使数据随机均匀的分配到不同的Reducer机器中
+
+- Map-Side聚合
+
+  - Hive的某些SQL操作可以实现Map端的聚合，类似于MapReude的Combine操作
+
+    ```sql
+    --设置开启Map端的聚合
+    	set hive.map.aggr=true;
+    --map端group by执行聚合时处理的多少航数据（默认：100000）
+    	set hive.groupby.mapaggr.checkinterval=100000;
+    --进行聚合的最小比例（例如对10000条数据做聚合，若聚合之后的数量/10000大于该配置，则不会聚合，默认0.5）
+    	set hive.map.aggr.hash.min.reduction=0.5;
+    --map端聚合使用的内存最大值
+    	set hive.map.aggr.hash.percentmemory;
+    --是否对Group By产生的数据倾斜做优化，默认为fasle
+    	set hive.groupby.skewindata;
+    ```
   
+- 合并小文件
+
+  - Hive在操作的时候，如果文件数目小，容易在文件存储端造成压力，给HDFS造成压力，影响效率
+
+    ```sql
+    --是否合并map端输出文件
+    	set hive.merge.mapfiles=true;
+    --是否合并Reduce端输出文件
+    	set hive.merge.mapredfiles=true;
+    --合并文件的大小
+    	set hive.merge.size.per.task=256*1000*100
+
+- 合理设置Map以及Reduce的数量
+
+  ```sql
+  --一个Split的最大值，即每个Map处理文件的最大值
+  	set mapred.max.split.size
+  --一个节点上Split的最小值
+  	set mapred.min.split.size.per.node
+  --一个机架上Split的最小值
+  	set mapred.min.split.size.per.rack
+  --强制指定Reduce任务的数量
+  	set mapred.reduce.tasks
+  --每个Reduce任务处理的数据量
+  	set hive.exec.reducers.bytes.per.reducer
+  --每个任务最大的Reduce数
+  	set hive.exec.reducers.max
+  ```
+
+- JVM重用
+
+  - 设置开启之后，task会一直占用资源，不论是否有task运行，直到所有的task，即整个job全部执行完成之后，才会释放所有task资源
+
+    ```sql
+    --设置jvm重用，插槽数（n）
+    set mapred.job.reuse.jvm.num.tasks=n;
+    ```
+
+    
+
+
 
 
 

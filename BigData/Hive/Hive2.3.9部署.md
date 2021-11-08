@@ -203,13 +203,78 @@
   hive
   ```
 
+
+
+## 安装Hive Server2
+
+- 搭建Hive Server2服务时，需要修改HDFS的超级用户的管理权限
+
+  	<property>
+  		<name>hadoop.proxyuser.root.groups</name>	
+  		<value>*</value>
+  	</property>
+  	<property>
+  		<name>hadoop.proxyuser.root.hosts</name>	
+  		<value>*</value>
+  	</property>
+
+- 刷新HDFS配置
+
+  ```python
+  hdfs dfsadmin -fs hdfs://liuhui:8020 -refreshSuperUserGroupConfiguration
+  ```
+
+- 启动hive server2
+
+  ```python
+  hive --service hiverserver2
+  ```
+
+
+
+## HiveServer2的访问方式
+
+
+
+
+
+- beeline
+
+  ```python
+  beeline -u jdbc:hive2://<host>:<port>/<db> -n name
+  ```
+
+- jdbc
+
+  ```java
+  import java.sql.Connection;
+  import java.sql.DriverManager;
+  import java.sql.ResultSet;
+  import java.sql.SQLException;
+  import java.sql.Statement;
   
+  public class HiveJdbcClient {
+  
+  	private static String driverName = "org.apache.hive.jdbc.HiveDriver";
+  
+  	public static void main(String[] args) throws SQLException {
+  		try {
+  			Class.forName(driverName);
+  		} catch (ClassNotFoundException e) {
+  			e.printStackTrace();
+  		}
+  		Connection conn = DriverManager.getConnection("jdbc:hive2://node04:10000/default", "root", "");
+  		Statement stmt = conn.createStatement();
+  		String sql = "select * from psn limit 5";
+  		ResultSet res = stmt.executeQuery(sql);
+  		while (res.next()) {
+  			System.out.println(res.getString(1) + "-" + res.getString("name"));
+  		}
+  	}
+  }
+  ```
 
-
-
-
-
-
+  
 
 
 
