@@ -207,7 +207,7 @@
 
 ## 安装Hive Server2
 
-- 搭建Hive Server2服务时，需要修改HDFS的超级用户的管理权限
+- 搭建Hive Server2服务时，需要修改HDFS的超级用户的管理权限，修改core-site.xml
 
   	<property>
   		<name>hadoop.proxyuser.root.groups</name>	
@@ -221,27 +221,24 @@
 - 刷新HDFS配置
 
   ```python
-  hdfs dfsadmin -fs hdfs://liuhui:8020 -refreshSuperUserGroupConfiguration
+  hdfs dfsadmin -refreshSuperUserGroupConfiguration
   ```
 
 - 启动hive server2
 
   ```python
-  hive --service hiverserver2
+  hiverserver2
   ```
 
 
 
 ## HiveServer2的访问方式
 
-
-
-
-
 - beeline
 
   ```python
   beeline -u jdbc:hive2://<host>:<port>/<db> -n name
+  	beeline -u jdbc:hive2://node1:10000 -n root
   ```
 
 - jdbc
