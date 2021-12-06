@@ -146,6 +146,75 @@
 
 
 
+## HBase Shell基础操作
+
+### 通用命令
+
+```java
+// 展示regionserver的task列表
+hbase(main):000:0>processlist
+// 展示集群的状态
+hbase(main):000:0>status
+// table命令的帮助手册
+hbase(main):000:0>table_help
+// 显示hbase的版本
+hbase(main):000:0>version
+// 展示当前hbase的用户
+hbase(main):000:0>whoami
+```
+
+
+
+### DDL操作
+
+```java
+// 修改表的属性
+hbase(main):000:0>alter 't1', NAME => 'f1', VERSIONS => 5
+// 创建表
+hbase(main):000:0>create 't1', 'cf'
+// 查看表描述，只会展示列簇的信息
+hbase(main):000:0>describe 'test'
+// 禁用表
+hbase(main):000:0>disable 'test'
+// 禁用所有表
+hbase(main):000:0>disable_all
+// 删除表
+hbase(main):000:0>drop 'test'
+// 删除所有表
+hbase(main):000:0>drop_all
+// 启用表
+hbase(main):000:0>enable 'test'
+// 启用所有表
+hbase(main):000:0>enable_all
+// 判断表是否存在
+hbase(main):000:0>exists 'test'
+// 获取表
+hbase(main):000:0>get_table 'test'
+// 判断表是否被禁用
+hbase(main):000:0>is_disabled 'test'
+// 判断表是否被启用
+hbase(main):000:0>is_enabled 'test'
+// 展示所有表
+hbase(main):000:0>list
+// 展示表所占用的Region
+hbase(main):000:0>list_regions
+// 定位某个RowKey所在的行在哪个Region
+hbase(main):000:0>locate_region
+// 展示所有的过滤器
+hbase(main):000:0>show_filters
+```
+
+### NameSpace操作
+
+```java
+// 修改命名空间的属性
+
+```
+
+
+
+
+
 
 
 
