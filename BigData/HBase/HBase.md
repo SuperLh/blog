@@ -270,9 +270,36 @@ hbase(main):000:0>truncate
   - 小树先存到内存中，为了防止内存数据丢失，写内存的同时，将数据持久化到硬盘，对应了HBase的MemStore和HLog
   - MemStore上的树达到一定大小之后，需要flush到HRegion磁盘中，一般是Hadoop DataNode，这样MemStore就变成了DataNode上的磁盘文件StoreFile，定期HRegionServer对DataNode的数据做Merge操作，彻底删除无效空间，多棵小树在这个实际合并成大树，增加读性能
 
+
+
+### LSM树插入和合并操作
+
+![avatar](pics/LSM树插入和合并操作.png)
+
+### LSM树查找和删除操作
+![avatar](pics/LSM树查找和删除操作.png)
+
 ## HBase数据读取流程
 
+- 和写流程相比，HBase读数据是一个更加复杂的操作流程，这主要基于两个方面的原因，其一是因为整个HBase存储引擎基于LSM树实现，因此一次范围查询可能会涉及多个分片，多块缓存甚至多个数据存储文件。其二是因为HBase中更新操作以及删除操作实现都很简单，更新操作并没有更新原有数据，而是使用时间戳属性实现了多版本。删除操作也并没有真正删除原有数据，只是插入了一条打上“deleted”标签的数据，而真正的数据删除发生在系统异步执行的Major_Compact的时候。这种实现方法大大简化了数据更新，删除流程，但是对于数据读取来说却意味着套上了层层枷锁，读取过程中需要根据版本进行过滤，同时对已经标记删除的数据也要进行过滤
+- 构建Scanner体系-组件施工队
+  - scanner的体系核心在于三层scanner：RegionScanner、StoreScanner以及StoreFileScanner。三者是层级的关系，一个RegionScanner由多个StoreScanner构成，一张表由多个列簇组成，就有多少个StoreScanner负责该列簇的数据扫描。一个StoreScanner又是由多个StoreFileScanner组成。每个Store的数据由内存中的MemStore和磁盘上的StoreFile文件组成，相对应的，StoreScanner对象会雇佣一个MemStoreScanner和多个StoreFileScanner来进行实际的数据读取，每个StoreFile文件对应一个StorFileScanner。
+  - StoreFileScanner和MemStoreScanner是整个Scan的最终执行者
+- 搜索过程
+  - RegionScanner会根据列簇构建StoreScanner，有多少列簇就构建多少个StoreScanner，用于该列簇的数据检索
+  - 每个StoreScanner会为当前的Store中每个HFile构造一个StoreFileScanner，用于实际执行对应文件的搜索。同时会为对应的MemStore构造一个MemStoreScanner，用于执行该Store中MemStore的数据检索
+  - 过滤淘汰StoreFileScanner：根据Time Range以及RowKey Range对StoreFileScanner以及MemStoreScanner进行过滤，淘汰肯定不存在待检索结果的Scanner
+  - Seek RowKey：所有StoreFileScanner开始做准备工作，在负责的HFile中定位到满足条件的起始Row，Seek过程是很核心的步骤，包含以下三步
+    - 定位Block OffSet：在BlockCache中读取该HFile的索引树结构，根据索引树检索对应RowKey所在的Block Offset和Block Size
+    - Load Block：根据Block OffSet首先在Block Cache中查找Data Block，如果不在缓存，再在HFile中加载
+    - Seek Key：在Data Block内部通过二分查找的方式定位具体的Row Key
+    - StoreFileScanner合并构建最小堆：将该Store中所有StoreFileScanner和MemStroreScanner合并形成一个heap，所谓heap是一个优先级队列，队列中所有元素是所有Scanner，排序规则按照scanner seek到的key value大小由小到大进行排序
 
+
+
+
+- <font color='red'>*为什么这些Scanner需要由小到大排序*</font>
+  - scan的结果需要由小到大输出给用户，并且只有由小到大排序才能使 scan的效率最高，HBase支持数据多版本，假设用户只想获取最新的版本，那么只需要将这些数据由最新到最旧排序，然后取队首元素返回就可以了
 
 
 
