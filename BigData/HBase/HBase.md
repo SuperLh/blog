@@ -127,7 +127,7 @@
 
 - 客户端从ZooKeeper中获取meta表所在的Region Server节点信息
 - 客户端访问meta表所在的Region Server，获取到Region所在的Region Server信息
-- 客户端访问具体的Region所在的Region Serve，找到对应的Region及Store
+- 客户端访问具体的Region所在的Region Server，找到对应的Region及Store
 - 首先从MetaStore中读取数据，如果读取到了那么直接将数据返回，如果没有，则去blockcache读取数据
 - 如果blockcache中读取到数据，则直接将数据返回，如果读取不到，则遍历StoreFile文件，查找数据
 - 如果从StoreFile中读取不到数据，则返回客户端为空，如果读取到数据，那么先将数据缓存到blockcache中，然后再将数据返回给客户端
@@ -207,9 +207,70 @@ hbase(main):000:0>show_filters
 ### NameSpace操作
 
 ```java
-// 修改命名空间的属性
-
+//修改命名空间的属性
+hbase(main):000:0>alter_namespace 'my_ns', {METHOD => 'set', 'PROPERTY_NAME' => 'PROPERTY_VALUE'}
+//创建命名空间
+hbase(main):000:0>create_namespace 'my_ns'
+//获取命名空间的描述信息
+hbase(main):000:0>describe_namespace 'my_ns'
+//删除命名空间
+hbase(main):000:0>drop_namespace 'my_ns'
+//展示所有的命名空间
+hbase(main):000:0>list_namespace
+//展示某个命名空间下的所有表
+hbase(main):000:0>list_namespace_tables 'my_ns'
 ```
+
+
+
+### DML操作
+
+```java
+//向表中追加一个具体的值
+hbase(main):000:0>append 't1', 'r1', 'c1', 'value', ATTRIBUTES=>{'mykey'=>'myvalue'}
+//统计表的记录条数，默认一千条输出一次
+hbase(main):000:0>count 'test'
+//删除表的某一个值
+hbase(main):000:0>delete 't1', 'r1', 'c1', ts1
+//删除表的某一个列的所有值
+hbase(main):000:0>deleteall 't1', 'r1', 'c1'
+//获取表的一行记录
+hbase(main):000:0>get 't1', 'r1'
+//获取表的一个列的值的个数
+hbase(main):000:0>get_counter 't1', 'r1', 'c1'
+//获取表的切片
+hbase(main):000:0>get_splits 't1'
+//增加一个cell对象的值
+hbase(main):000:0>incr 't1', 'r1', 'c1'
+//向表中的某一个列插入值
+hbase(main):000:0>put 't1', 'r1', 'c1', 'value’, ts1
+//扫描表的全部数据
+hbase(main):000:0>scan 't1'
+//清空表的所有数据
+hbase(main):000:0>truncate
+```
+
+
+
+## HBase的LSM树存储结构
+
+### LSM树的由来
+
+- Hash存储的方式支持增、删、改以及随机读取操作，但是不支持顺序扫描，对应的存储系统为K-V存储系统，对于K-V的插入及查询，要比树的操作块，如果不需要有序的遍历数据
+- B+树不仅支持单挑记录的增、删、读、改操作，还支持顺序扫描（B+树的叶子节点之间的指针），对应的存储系统就是关系数据库。但是删除和更新操作比较麻烦
+- LSM树（Log-Structed Merge Tree）存储结构和B树存储引擎一样，同样支持增、删、改、读、顺序扫描操作。而且通过批量存储技术规避磁盘随机写入问题。LSM树和B+树相比，LSM树牺牲了部分读性能，用来大幅度提高写性能
+
+
+
+### LSM树的设计思想和原理
+
+- 将对数据的修改和增量保持在内存中，达到指定的大小限制后将这些修改操作批量写入磁盘，不过读取的时候比较麻烦，需要合并磁盘中历史数据和内存中最近修改操作，所以写入性能大大提升，读取时可能需要先查看是否命中内存，否则需要访问较多的磁盘文件。极端的说，基于LSM树实现的HBase的写性能比MySQL高了一个数量级，读性能低了一个数量级
+- LSM树的原理是把一棵大树拆分成N棵小树，首先写入内存中，随着小树越来越大，内存中的小树会flush到磁盘中，磁盘中的树定期做Merge操作，合并成一颗大树，以优化读性能
+- 在HBase中，LSM树的应用流程对应如下
+  - 小树先存到内存中，为了防止内存数据丢失，写内存的同时，将数据持久化到硬盘，对应了HBase的MemStore和HLog
+  - MemStore上的树达到一定大小之后，需要flush到HRegion磁盘中，一般是Hadoop DataNode，这样MemStore就变成了DataNode上的磁盘文件StoreFile，定期HRegionServer对DataNode的数据做Merge操作，彻底删除无效空间，多棵小树在这个实际合并成大树，增加读性能
+
+## HBase数据读取流程
 
 
 
