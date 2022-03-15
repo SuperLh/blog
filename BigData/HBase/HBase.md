@@ -140,7 +140,7 @@
 - 客户端从ZooKeeper中获取meta表所在的RegionServer节点信息
 - 客户端访问meta表所在的Region Server节点，获取到Region所在的Region Server信息
 - 客户端访问具体的Region所在的Region Server，找到对应的Region及Store
-- 开始写数据，写数据的时候辉县从HLog中写一份数据（方便MetaStore中数据丢失后能够从HLog恢复数据，向HLog中写数据的时候也是优先写入内存，后台会有一个线程，定期异步刷写数据到HDFS，如果HLog的数据也写入失败，那么数据就会发生丢失）
+- 开始写数据，写数据的时候会先从HLog中写一份数据（方便MetaStore中数据丢失后能够从HLog恢复数据，向HLog中写数据的时候也是优先写入内存，后台会有一个线程，定期异步刷写数据到HDFS，如果HLog的数据也写入失败，那么数据就会发生丢失）
 - HLog数据写入完成之后，会先将数据写入到MemStore，MemStore默认大小是64MB，当MemStore满了之后会进行统一的溢写操作，将MemStore中的数据持久化到HDFS中
 - 频繁的溢写会导致产生很多的小文件，因此会进行文件的合并，文件在合并的时候有两种，minor和major，minor是小范围文件的合并，major表示将所有的StoreFile文件都合并成一个
 
@@ -279,6 +279,24 @@ hbase(main):000:0>truncate
 ### LSM树查找和删除操作
 ![avatar](pics/LSM树查找和删除操作.png)
 
+
+
+## HBase数据存储
+
+- HDFS存储目录
+
+  - /hbase/data/'namespace'/'table_name'/'region_id'/'列簇'/'store_file_id'
+  - 例：/hbase/data/default/file_test/d51fef8b-8f8f-4d47-a5a4/cf1/d90e2597-56fa-4292-8729
+  - 例：/hbase/data/default/file_test/d51fef8b-8f8f-4d47-a5a4/cf2/cd3d91b6-7402-4b65-887f
+
+- StoreFile存储结构
+
+  ![avatar](pics/keyvalue.png)
+
+  
+
+
+
 ## HBase数据读取流程
 
 - 和写流程相比，HBase读数据是一个更加复杂的操作流程，这主要基于两个方面的原因，其一是因为整个HBase存储引擎基于LSM树实现，因此一次范围查询可能会涉及多个分片，多块缓存甚至多个数据存储文件。其二是因为HBase中更新操作以及删除操作实现都很简单，更新操作并没有更新原有数据，而是使用时间戳属性实现了多版本。删除操作也并没有真正删除原有数据，只是插入了一条打上“deleted”标签的数据，而真正的数据删除发生在系统异步执行的Major_Compact的时候。这种实现方法大大简化了数据更新，删除流程，但是对于数据读取来说却意味着套上了层层枷锁，读取过程中需要根据版本进行过滤，同时对已经标记删除的数据也要进行过滤
@@ -298,12 +316,130 @@ hbase(main):000:0>truncate
 
 
 
-- <font color='red'>*为什么这些Scanner需要由小到大排序*</font>
+- <font color='red'>**为什么这些Scanner需要由小到大排序**</font>
   - scan的结果需要由小到大输出给用户，并且只有由小到大排序才能使 scan的效率最高，HBase支持数据多版本，假设用户只想获取最新的版本，那么只需要将这些数据由最新到最旧排序，然后取队首元素返回就可以了
 
 
 
+## HBase优化设计
 
+### 表设计
+
+- Pre-Creating Regions
+
+  - 默认情况下，在创建HBase表的时候会自动创建一个Region分区，当导入数据的时候，所有的HBase客户端都向这一个Region写数据，直到这个Region足够大了以后才会进行切分。一种可以加快批量写入速度的方法是通过预先创建一些空的Regions，当数据写入HBase时，会按照Region分区情况，在集群内进行数据的负载均衡
+
+    ```java
+    //第一种实现方式是使用admin对象的切分策略
+    byte[] startKey = ...;      // your lowest key
+    byte[] endKey = ...;        // your highest key
+    int numberOfRegions = ...;  // # of regions to create
+    admin.createTable(table, startKey, endKey, numberOfRegions);
+    //第二种实现方式是用户自定义切片
+    byte[][] splits = ...;   // create your own splits
+    /*
+    byte[][] splits = new byte[][] { Bytes.toBytes("100"),
+                    Bytes.toBytes("200"), Bytes.toBytes("400"),
+                    Bytes.toBytes("500") };
+    */
+    admin.createTable(table, splits);
+    ```
+
+  
+
+### RowKey设计
+
+- HBase中RowKey用来检索表中的记录，支持以下三种方式
+  - 通过单个RowKey访问：即按照某个RowKey进行get操作
+  - 通过RowKey的range进行scan：即通过设置startRowKey和endRowKey，在这个范围内进行扫描
+  - 全表扫描：即直接扫描整张表中所有记录
+- RowKey设计原则
+  - **越短越好，提高效率**
+    - 数据的持久化文件HFile中是按照KeyValue形式存储的，如果RowKey过长，比如设置100字节，1000w行数据，RowKey数据就占用十亿字节，将近1G的数据，这样会影响HFile的存储效率
+    - HBase中包含缓存机制，每次会将查询的结果暂时缓存到HBase的内存中，如果RowKey过长，内存的利用率就会降低，系统不能缓存更多的数据，降低检索的效率
+  - **散列原则，实现负载均衡**
+    - 如果RowKey是按照时间戳的方式递增，不要将时间放在前面，建议将RowKey的高位作为散列字段，低位放时间字段，这样将提高数据均衡分布在每个RegionServer，实现了负载均衡。如果没有散列字段，首字段是根据时间信息将产生所有的新数据都在一个RegionServer上，出现数据堆积的热点现象，这样做数据检索的时候，负载将会集中在一个RegionServer上，降低查询的效率
+    - 散列方式
+      - 加盐：添加随机值
+      - hash：采用md5散列算法取前四位做前缀
+      - 反转：手机号反转
+  - **唯一原则，字典序排序存储**
+    - 必须在设计上保证其唯一性，RowKey是按照字典序，排序存储的，因此在设计RowKey的时候，充分利用该特点，将经常读取的数据存储到一块，将最近可能会被访问的数据放在一起
+
+
+
+### 列簇设计
+
+- 不要在一张表定义太多的列簇，目前HBase并不能很好的处理超过2-3个列簇的表，因为某个列簇在flush的时候，它邻近的列簇也会因为关联效应出发flush，最终导致系统产生更多的IO
+  - 当开始向HBase中插入数据的时候，数据会首先写入到MemStore，MemStore是一个内存结构，每个列簇对应一个MemStore，每个列簇对应一个MemStore，当包含更多的列簇的时候，会导致存在多个MmeStore，每个MemStore在flush的时候会对应一个HFile文件，因此会产生很多的HFile文件，更加严重的时候，flush操作是Region级别，当Region中的MemStore被flush时，同一个Region的MemStore也会进行flush操作，当某一张表拥有很多列簇，且列簇之间的数据分布不均匀的时候，会产生更多的磁盘文件
+  - 当Hbase表的某个Region过大时，会被拆分成两个，如果我们有多个列簇，且列簇之间数据量相差悬殊的时候，Region的split操作会导致原本数据量小的文件被进一步的切分，而产生更多的小文件
+  - 与flush操作一样，目前HBase的Compaction操作也是Region级别的，过多的列簇也会产生不必要的IO
+  - HDFS对一个目录下的文件数有限制，如果我们有N个列簇，M个Region，那么我们持久化到HDFS至少会产生N * M个文件，而每个列簇对应底层的HFile文件又不止一个，假设为K个，那么该表最终在HDFS目录下的生成的文件个数N * M * K个，有可能会超过HDFS的限制
+
+
+
+### in memory
+
+- HBase在LRU缓存基础之上采用了分层设计，整个BlockCache分成了三个部分，分别是single，multi，inMemory
+  - single：如果一个Block第一次被访问，放在该优先队列中
+  
+  - multi：如果一个Block被多次访问，则从single队列转移到multi队列
+  
+  - inMemory：优先级最高，常驻Cache，因此一般只有HBase的元数据，才会放到inMemor队列
+  
+    
+
+### Max Version
+
+- 创建表的时候，可以通过ColumnFamilyDescriptorBuilder.setMaxVersions(int maxVersions)设置表中数据的最大版本，如果只需要保存最新版本的数据，那么可以设置setMaxVersion(1)，保留更多的版本信息会占用更多的空间
+
+
+
+### Time to live
+
+- 创建表的时候，可以通过ColumnFamilyDescriptorBuilder.setTimeToLive(int timeToLive)设置表中数据的生命周期，过期数据将会被自动删除，假设只需要存储最近两天的数据，可以设置setTimeToLive(2 * 24 * 60 * 60)
+
+
+
+### Compaction
+
+- 在HBase中，数据在更新时首先写入HLog和内存MemStore中，MemStore中的数据是排序的，当MemStore累计到一定阈值之后，就会创建一个新的MemStore，并且将老的MemStore添加到flush队列，由单独的线程flush到磁盘上，成为一个StoreFile，由此同时，系统会在zk中，记录一个redo point，表示这个时刻之前的变更已经持久化到硬盘了
+
+- StoreFile是只读的，一旦创建之后就不可以再修改，因此HBase的更新其实是不断追加的过程，当一个Store中的StoreFile达到一定阈值之后，就会进行一次合并，将对同一个Key的修改合并到一起，形成一个大的StoreFile，当StoreFile的大小达到一定阈值之后，在对StoreFile进行切分，等分为两个StoreFile
+
+- 由于对表的更新是不断追加的，处理请求时，需要访问Store中全部的StoreFile和MemStore，将他们按照RowKey进行合并，由于StoreFile和MemStore都是经过排序的，并且StoreFile带有内存中索引，通常合并过程还是比较快的
+
+- 实际应用中，可以考虑必要时手动进行major Compaction，将同一个RowKey的修改进行合并形成一个大的StoreFile，同时可以将StoreFile设置大一些，减少Split的发生次数
+
+- HBase为了防止小文件过多，以保证查询效率，HBase需要在必要的时候将这些小的StoreFile合并形成相对较大的StoreFile，这个过程称为Compaction。在HBase中，主要分为Minor Compaction、Major Compaction
+
+  - Minor Compaction：较小、很少文件的合并
+
+    - hbase.hstore.compaction.min：默认值为 3，表示至少需要三个满足条件的store file时，minor compaction才会启动
+    - hbase.hstore.compaction.max：默认值为10，表示一次minor compaction中最多选取10个store file
+    - hbase.hstore.compaction.min.size：表示文件大小小于该值的store file，一定会加入到minor compaction的store file中
+    - hbase.hstore.compaction.max.size：表示文件大小大于该值的store file 一定不会被添加到minor compaction
+    - hbase.hstore.compaction.ratio：将 StoreFile 按照文件年龄排序，minor compaction 总是从 older store file 开始选择，如果该文件的 size 小于后面 hbase.hstore.compaction.max 个 store file size 之和乘以 ratio 的值，那么该 store file 将加入到 minor compaction 中。如果满足 minor compaction 条件的文件数量大于 hbase.hstore.compaction.min，才会启动。
+
+  - Major Compaction：将所有的Store File合并成一个，触发Major Compaction条件
+
+    - major_compact命令
+    - majorCompact() API
+    - RegionServer自动运行
+      - hbase.hregion.majorcompaction：默认为24 小时
+      - hbase.hregion.majorcompaction.jetter:默认值为0.2 防止region server 在同一时间进行major compaction）
+      - hbase.hregion.majorcompaction.jetter参数的作用是：对参数hbase.hregion.majorcompaction 规定的值起到浮动的作用，假如两个参数都为默认值24和0.2，那么major compact最终使用的数值为：19.2~28.8 这个范围。
+
+     
+
+### HBase写表操作
+
+- 是否写入HLog，HLog是否需要同步
+  - 数据写入流程可以理解为一次顺序写
+
+
+
+ 
 
 
 
