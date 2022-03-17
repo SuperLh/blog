@@ -94,7 +94,7 @@
 
 ## HBase架构
 
-![avatar](/pics/hbase架构图.png)
+![avatar](/pics/hbase.png)
 
 - Client
 
