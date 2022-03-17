@@ -1,3 +1,22 @@
+# Table of Contents
+
+* [Hive](#hive)
+  * [Hive基本SQL操作](#hive基本sql操作)
+    * [DDL](#ddl)
+    * [DML](#dml)
+  * [Hive内部表和外部表的区别](#hive内部表和外部表的区别)
+  * [Hive分区表](#hive分区表)
+  * [Hive分区表的修复分区](#hive分区表的修复分区)
+  * [Hive Serde](#hive-serde)
+  * [Hive自定义函数](#hive自定义函数)
+  * [Hive动态分区](#hive动态分区)
+  * [Hive分桶](#hive分桶)
+  * [Hive Lateral View](#hive-lateral-view)
+  * [Hive视图](#hive视图)
+  * [Hive索引](#hive索引)
+  * [Hive优化](#hive优化)
+
+
 # Hive
 
 ## Hive基本SQL操作

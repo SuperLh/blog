@@ -1,3 +1,31 @@
+# Table of Contents
+
+* [HBase](#hbase)
+  * [关系型数据库与非关系型数据库](#关系型数据库与非关系型数据库)
+    * [关系型数据库](#关系型数据库)
+    * [非关系型数据库](#非关系型数据库)
+  * [HBase简介](#hbase简介)
+  * [HBase数据模型](#hbase数据模型)
+  * [HBase架构](#hbase架构)
+  * [HBase读写流程](#hbase读写流程)
+    * [读流程](#读流程)
+    * [写流程](#写流程)
+  * [HBase Shell基础操作](#hbase-shell基础操作)
+    * [通用命令](#通用命令)
+    * [DDL操作](#ddl操作)
+    * [NameSpace操作](#namespace操作)
+    * [DML操作](#dml操作)
+  * [HBase的LSM树存储结构](#hbase的lsm树存储结构)
+    * [LSM树的由来](#lsm树的由来)
+    * [LSM树的设计思想和原理](#lsm树的设计思想和原理)
+    * [LSM树插入和合并操作](#lsm树插入和合并操作)
+    * [LSM树查找和删除操作](#lsm树查找和删除操作)
+  * [HBase数据存储](#hbase数据存储)
+  * [HBase数据读取流程](#hbase数据读取流程)
+  * [HBase优化设计](#hbase优化设计)
+    * [表设计](#表设计)
+
+
 # HBase
 
 ## 关系型数据库与非关系型数据库
@@ -432,10 +460,147 @@ hbase(main):000:0>truncate
 
      
 
-### HBase写表操作
+### HBase写表优化
 
-- 是否写入HLog，HLog是否需要同步
-  - 数据写入流程可以理解为一次顺序写
+#### 是否写入WAL，WAL是否需要同步
+
+- 数据写入流程可以理解为一次顺序写WAL和一次写缓存，通常情况下，写缓存的延迟很低，因此提升写性能只能从写WAL入手
+- WAL机制一方面是为了确保数据即时写入缓存丢失也可以恢复，另一方面是为了集群之间异步复制
+- 对于部分业务可能不是特别关心异常情况下的数据丢失，而更关心数据的吞吐量，可以考虑不进行WAL的写入
+
+
+
+#### Put是否可以同步批量提交
+
+- HBase分别提供了单条put以及批量put的API接口，使用批量put接口可以减少客户端到RegionServer之间的RPC连接数，提高写入性能
+- 批量put请求要么全部成功，要么抛出异常
+
+
+
+#### Put是否可以异步批量提交
+
+- 如果可以接受异常情况下少量数据丢失的话，还可以使用异步批量提交的方式提交请求
+- 提交分为两阶段执行
+  - 用户提交写请求之后，数据会写入客户端缓存，并返回用户写入成功
+  - 当客户端缓存达到阈值（默认2M）之后批量提交给RegionServer
+- 在某些情况下，客户端异常的情况下缓存数据可能丢失
+- 使用方式：setAutoFlush(false)
+
+
+
+#### Region是否太少
+
+- 当前集群中表的Region个数如果小于RegionServer个数，可以考虑切分Region并尽可能分布到不同RegionServer来提高系统请求并发度，如果表的Region个数已经大于RegionServer个数，再增加Region个数效果并不明显
+
+
+
+#### 写入请求是否不均衡
+
+- 写入请求不均衡，如果不均衡，一方面会导致系统并发度较低，另一方面可能会造成部分节点负载很高，影响其他业务
+- 解决方案：检查RowKey设计以及预分区策略，保证写入请求均衡
+
+
+
+#### 写入数据KeyValue是否过大
+
+- KeyValue大小对写入性能的影响巨大，一旦遇到写入性能比较差的情况，需要考虑是否由于写入KeyValue数据太大导致
+
+  
+
+### HBase读表优化
+
+#### Scan缓存是否设置合理
+
+- 一次Scan会返回大量数据，因此客户端发起一次Scan请求，实际并不会一次就将所有数据加载到本地，而是分成多次RPC请求进行加载，这样设计的原因是因为大量数据请求可能会导致网络带宽消耗严重，影响其他业务，另一方面因为数据量太大导致本地客户端发生OOM。在这样的设计模式下，用户会首先加载一部分数据到本地，然后遍历处理，再加载下一部分数据到本地处理，如此往复，直到所有数据全部加载完成。数据加载到本地就存放在Scan缓存中，默认是100条
+- 大Scan场景下，增加Scan缓存，用以减少RPC次数
+
+
+
+#### get请求是否可以批量请求
+
+- HBase分别提供了单条get和批量get的API，使用批量get接口可以减少客户端到RegionServer的RPC连接数，提供读取性能。批量get请求要么成功返回所有数据，要么抛出异常
+
+
+
+#### 请求是否可以显示指定列簇和列
+
+- HBase不同列簇的数据分开存储在不同的目录下，如果一个表有多个列簇，只是根据RowKey而不指定列簇进行检索的话，不同列簇的数据需要单独进行检索，性能必然会比指定列簇查询差很多
+- 可以指定列簇或者列进行精确查找的尽量指定查找
+
+
+
+#### 离线批量读取请求是否设置禁止缓存
+
+- 通常离线批量读取数据会进行一次性全表扫描，一方面数据量很大，另一方面请求只会执行一次。这种情况如果使用scan默认设置，就会将数据从HDFS加载出来之后放到缓存。大量数据进入缓存，必将其他实时业务热点数据挤出去，其他业务不得不从HDFS加载，进而会造成明显的读延迟
+- 离线批量读请求设置禁用缓存
+
+
+
+#### 读请求是否均衡
+
+- 极端情况下，加入所有的读请求都落在一台RegionServer的某几个Region上，这一方面不能发挥整个集群的并发处理能力，另一方面势必造成该台RegionServer资源消耗严重
+- 观察所有RegionServer的读请求QPS曲线，确认是否存在读请求不均衡的现象
+- 检查RowKey设计以及预分区策略，保证读请求均衡
+
+
+
+#### BlockCache是否设置合理
+
+- BlockCache作为读缓存，对于读性能来说至关重要。默认情况下BlockCache和MemStore的配置相对比较均衡（各占40%），可以根据集群业务进行修正，比如读多写少的业务可以将BlockCache占比调大。
+- BlockCache的策略选择也很重要，不同策略对读性能来说影响并不是很大，但是对GC的影响相当显著
+
+-  JVM内存配置量 < 20G，BlockCache策略选择LRUBlockCache；否则选择BucketCache策略的offheap模式；
+
+
+
+#### HFile文件是否太多
+
+- HBase读取数据通常首先会到MemStore和BlockCache中检索（读取最近写入数据和热点数据），如果查找不到就会到文件中检索
+- HBase的类LSM结构会导致每个Store包含多个HFile文件，文件越多，检索所需的IO次数必然越多，读取延迟也就越高
+- 文件的数量通常取决于Conpaction的执行策略，一般和两个配置参数有关
+  - hbase.hstore.compaction.min：一个Store中的文件数超过多少就会进行合并
+  - hbase.hstore.compaction.max.size：合并的文件大小最大是多少，超过此大小的文件不能参与合并
+- 观察RegionServer级别以及Region级别的StoreFile数，确认HFile文件是否过多
+- hbase.hstore.compaction.min：默认3，设置需要根据Region大小确定，通常可以简单的认为hbase.hstore.compaction.max.size = RegionSize / hbase.hstore.compaction.min
+
+
+
+#### Compaction是否消耗系统资源过多
+
+- Compaction是将小文件合并为大文件，提高后序业务随机读性能，但是也会带来IO放大以及带宽消耗问题。正常配置情况下Minor Compaction并不会带来很大的系统资源消耗，除非因为配置不合理导致Minor Compaction太过频繁，或者Region设置太大情况下发生Major Compaction
+- 观察系统IO资源以及带宽资源使用情况，在观察Compaction队列长度，确认是否由于Compaction导致系统资源消耗过多
+- Minor Compaction：hbase.hstore.compaction.min设置不能太小，又不能设置太大，因此建议设置为5～6；hbase.hstore.compaction.max.size = RegionSize / hbase.hstore.compaction.min
+- Major Compaction：大Region读延迟敏感业务（ 100G以上）通常不建议开启自动Major Compaction，手动低峰期触发。小Region或者延迟不敏感业务可以开启Major Compaction，但建议限制流量
+
+
+
+#### 数据本地率是否太低
+
+- 数据本地率：HDFS数据通常存储三份，假如当前RegionA处于Node1上，数据a写入的时候三副本为(Node1,Node2,Node3)，数据b写入三副本是(Node1,Node4,Node5)，数据c写入三副本(Node1,Node3,Node5)，可以看出来所有数据写入本地Node1肯定会写一份，数据都在本地可以读到，因此数据本地率是100%。现在假设RegionA被迁移到了Node2上，只有数据a在该节点上，其他数据（b和c）读取只能远程跨节点读，本地率就为33%（假设a，b和c的数据大小相同）。
+- 数据本地率太低很显然会产生大量的跨网络IO请求，必然会导致读请求延迟较高，因此提高数据本地率可以有效优化随机读性能。数据本地率低的原因一般是因为Region迁移（自动balance开启、RegionServer宕机迁移、手动迁移等）,因此一方面可以通过避免Region无故迁移来保持数据本地率，另一方面如果数据本地率很低，也可以通过执行major_compact提升数据本地率到100%。
+- 避免Region无故迁移，比如关闭自动balance、RS宕机及时拉起并迁回飘走的Region等；在业务低峰期执行major_compact提升数据本地率
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
