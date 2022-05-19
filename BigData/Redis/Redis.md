@@ -7,6 +7,8 @@
   * [Redis数据类型](#redis数据类型)
     * [String](#string)
     * [List](#List)
+    * [Set](#Set)
+    * [Sorted Set](#Sorted Set)
 
 
 
@@ -991,7 +993,218 @@
     6) "60"
     ```
 
+
+
+
+## Redis发布订阅
+
+- 使用方法
+
+  - 发布者
+
+    ```shell
+    #client1开启一个redis客户端作为发布者
+    127.0.0.1:6379> publish k1 ceshi
+    (integer) 0
+    ```
+
+  - 订阅者
+
+    ```shell
+    #client2开启一个redis客户端作为订阅者
+    127.0.0.1:6379> subscribe k1
+    Reading messages... (press Ctrl-C to quit)
+    1) "subscribe"
+    2) "k1"
+    3) (integer) 1
+    ```
+
+  - 发布者持续发布消息
+
+    ```shell
+    127.0.0.1:6379> publish k1 1
+    (integer) 1
+    127.0.0.1:6379> publish k1 2
+    (integer) 1
+    127.0.0.1:6379> publish k1 3
+    (integer) 1
+    ```
+
+  - 订阅者会收到相应的消息
+
+    ```shell
+    127.0.0.1:6379> subscribe k1
+    Reading messages... (press Ctrl-C to quit)
+    1) "subscribe"
+    2) "k1"
+    3) (integer) 1
+    1) "message"
+    2) "k1"
+    3) "1"
+    1) "message"
+    2) "k1"
+    3) "2"
+    1) "message"
+    2) "k1"
+    3) "3"
+    ```
+
+- 发布订阅的使用场景：聊天系统
+
+  ![avatar](pics/redis_publish_subscibe.png)
+
+
+
+## Redis事务
+
+- <font color='red'>**Redis是单进程的，所以哪个事务的exec先进到执行队列中，会先执行谁的事务**</font>
+
+- 使用方法
+
+  ```shell
+  127.0.0.1:6379> multi
+  OK
+  127.0.0.1:6379(TX)> set k1 a
+  QUEUED
+  127.0.0.1:6379(TX)> get k1
+  QUEUED
+  127.0.0.1:6379(TX)> exec
+  1) OK
+  2) "a"
+  ```
+
+- watch
+
+  - watch会监控某一个值，当这个值在事务中发生了变化，结果会返回nil
+
+  - 使用方法
+
+    ```shell
+    #watch k1 之后，k1没有变化，结果成功返回
+    127.0.0.1:6379> watch k1
+    OK
+    127.0.0.1:6379> multi
+    OK
+    127.0.0.1:6379(TX)> get k1
+    QUEUED
+    127.0.0.1:6379(TX)> exec
+    1) "a"
     
+    #watch k1 之后，k1发生变化，结果返回nil
+    #client1
+    127.0.0.1:6379> set k1 a
+    OK
+    127.0.0.1:6379> watch k1
+    OK
+    127.0.0.1:6379> multi
+    OK
+    127.0.0.1:6379(TX)> get k1
+    QUEUED
+    
+    #此时打开client2，改变k1的值
+    127.0.0.1:6379> set k1 b
+    OK
+    
+    #client1执行exec操作之后会返回nil
+    127.0.0.1:6379(TX)> exec
+    (nil)
+    ```
+
+
+
+## Redis扩展工具
+
+- 布隆过滤器
+
+- 原理
+
+  ![avatar](E:\Private\git\blog\BigData\Redis\pics\redis_bloom.png)
+
+- 使用方法
+
+  - 将现在已有的元素，通过映射函数，向bitmap中进行标记
+  - 当有新元素需要向数据库发生查询请求时，先通过映射函数进行匹配
+  - 当数据库增加元素时，需要完成元素映射函数对bitmap的标记
+  - <font color='red'>**布隆过滤器只能概率解决问题，会大概率减少放行和穿透，成本低**</font>
+
+- 布隆过滤器的开启方式
+
+  ```shell
+  #第一种，启动服务加命令行
+  redis-server --loadmodule /APP/redis/redisbloom.so
+  
+  #第二种，修改配置文件
+  ################################## MODULES #####################################
+  
+  # Load modules at startup. If the server is not able to load modules
+  # it will abort. It is possible to use multiple loadmodule directives.
+  #
+  # loadmodule /path/to/my_module.so
+  # loadmodule /path/to/other_module.so
+  loadmodule /APP/redis/redisbloom.so
+  ```
+
+
+
+## Redis过期时间
+
+- Redis作为缓存，可以不考虑数据的完整性，对冷热数据进行缓存
+
+- 使用方法
+
+  ```shell
+  #设置一个过期时间为20s的key
+  127.0.0.1:6379> set k1 a ex 20
+  OK
+  
+  #查询某个key的剩余过期时间
+  127.0.0.1:6379> ttl k1
+  (integer) 16
+  127.0.0.1:6379> ttl k1
+  (integer) 15
+  127.0.0.1:6379> ttl k1
+  (integer) 14
+  
+  #给已存在的key设置过期时间
+  127.0.0.1:6379> set k1 a
+  OK
+  127.0.0.1:6379> expire k1 20
+  (integer) 1
+  127.0.0.1:6379> ttl k1
+  (integer) 18
+  127.0.0.1:6379> ttl k1
+  (integer) 17
+  127.0.0.1:6379> ttl k1
+  (integer) 16
+  
+  #重新设置key会覆盖之前key的过期时间
+  127.0.0.1:6379> set k1 a ex 30
+  OK
+  127.0.0.1:6379> ttl k1
+  (integer) 28
+  127.0.0.1:6379> ttl k1
+  (integer) 27
+  127.0.0.1:6379> set k1 b
+  OK
+  127.0.0.1:6379> ttl k1
+  (integer) -1
+  
+  #指定过期时间删除的key
+  127.0.0.1:6379> expireat k1 1293840000
+  (integer) 0
+  ```
+
+- Redis如何淘汰过期的keys
+
+  - Redis的key过期有两种方式，被动和主动
+    - 被动
+      - 当客户端访问一些key时，key会被发现并主动地过期
+    - 主动
+      - Redis每10s会进行随机20个key的过期检测
+      - 删除这20个key中所有已经过期的keys
+      - 如果有多于25%的key被删除，那么重复执行此操作
+
+  
 
 
 
