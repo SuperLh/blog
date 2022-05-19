@@ -77,6 +77,25 @@
 
 
 
+- <font color='red'>**Please take a look at the provided example service unit files in this directory, and adapt and install them. Sorry!**</font>
+
+- 解决方案
+
+  - vi ./install_server.sh 
+
+  - 注释下面的代码即可:
+
+    ```
+    #bail if this system is managed by systemd
+    #_pid_1_exe="$(readlink -f /proc/1/exe)"
+    #if [ "${_pid_1_exe##*/}" = systemd ]
+    #then
+    #       echo "This systems seems to use systemd."
+    #       echo "Please take a look at the provided example service unit files in this directory, and adapt and install them. Sorry!"
+    #       exit 1
+    #fi
+    ```
+
 ## 查看服务
 
 - service redis_6379 status
