@@ -1199,13 +1199,39 @@
   - Redis的key过期有两种方式，被动和主动
     - 被动
       - 当客户端访问一些key时，key会被发现并主动地过期
+      
     - 主动
       - Redis每10s会进行随机20个key的过期检测
+      
       - 删除这20个key中所有已经过期的keys
+      
       - 如果有多于25%的key被删除，那么重复执行此操作
-
+      
+        
   
 
+## Redis回收策略
+
+- 当Redis作为缓存来使用时，当新增数据时，让他自动回收数据是件很方便的事情
+
+- LRU是Redis唯一支持的回收方法
+
+- MaxMemory配置指令
+
+  - 用于配置Redis存储数据时指定限制的内存大小，通过redis.conf进行设置
+
+    ```shell
+    maxmemory 100mb
+    ```
+
+- 回收策略
+
+  - noevicition：当内存达到限制，且客户端常事执行会让更多内存被使用的命令时，返回错误
+  - allkeys-lru：尝试回收最少使用的key（LRU）
+  - volatile-lru：尝试回收最少使用的key，但仅限于是设置了过期时间的key
+  - allkeys-random：回收随机的key
+  - volatile-random：回收随机的key，但仅限于是设置了过期时间的key
+  - volatile-ttl：回收设置了过期时间的键，并且优先回收剩余存活时间较短的key
 
 
 
