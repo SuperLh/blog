@@ -8,7 +8,7 @@
     * [String](#string)
     * [List](#List)
     * [Set](#Set)
-    * [Sorted Set](#Sorted Set)
+    * [SortedSet](#SortedSet)
 
 
 
