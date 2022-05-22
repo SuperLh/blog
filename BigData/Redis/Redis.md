@@ -9,6 +9,14 @@
     * [List](#List)
     * [Set](#Set)
     * [Sorted Set](#sorted-set)
+  * [Redis发布订阅](#Redis发布订阅)
+  * [Redis事务](#Redis事务)
+  * [Redis扩展工具](#Redis扩展工具)
+  * [Redis过期时间](#Redis过期时间)
+  * [Redis回收策略](#Redis回收策略)
+  * [Redis持久化](#Redis持久化)
+    * [RDB](#RDB)
+    * [AOF](#AOF)
 
 
 
@@ -134,14 +142,14 @@
     - set
 
       ```shell
-      #设置单个元素的值
+      # 设置单个元素的值
       127.0.0.1:6379> set k1 liuhui
       ```
     
     - set nx
     
       ```shell
-      #只有当元素不存在时，才能设置成功
+      # 只有当元素不存在时，才能设置成功
       127.0.0.1:6379> set k1 a nx
       OK
       127.0.0.1:6379> set k1 a nx
@@ -151,7 +159,7 @@
     - set xx
     
       ```shell
-      #只有当元素存在时，才能设置成功，即更新
+      # 只有当元素存在时，才能设置成功，即更新
       127.0.0.1:6379> set k1 a xx
       (nil)
       127.0.0.1:6379> set k1 a
@@ -165,7 +173,7 @@
     - get
     
       ```shell
-      #获取单个元素的值
+      # 获取单个元素的值
       127.0.0.1:6379> get k1
       "liuhui"
       ```
@@ -173,7 +181,7 @@
     - getset
     
       ```shell
-      #获取某个元素的当前值，并将新值赋值给他
+      # 获取某个元素的当前值，并将新值赋值给他
       127.0.0.1:6379> getset k1 c
       "b"
       127.0.0.1:6379> get k1
@@ -183,7 +191,7 @@
     - mset
     
       ```shell
-      #设置多个元素的值
+      # 设置多个元素的值
       127.0.0.1:6379> mset k1 a k2 b
       OK
       ```
@@ -191,7 +199,7 @@
     - mget
     
       ```shell
-      #获取多个元素的值
+      # 获取多个元素的值
       127.0.0.1:6379> mget k1 k2
       1) "a"
       2) "b"
@@ -200,7 +208,7 @@
     - append
     
       ```shell
-      #追加某个元素的值
+      # 追加某个元素的值
       127.0.0.1:6379> append k1 niubi
       127.0.0.1:6379> get k1
       "liuhuiniubi"
@@ -209,7 +217,7 @@
     - setrange
     
       ```shell
-      #从指定位置开始设置新的值
+      # 从指定位置开始设置新的值
       127.0.0.1:6379> setrange k1 6 queshi
       127.0.0.1:6379> get k1
       "liuhuiqueshi"
@@ -218,17 +226,17 @@
     - getrange
     
       ```shell
-      #截取字符串
+      # 截取字符串
       127.0.0.1:6379> getrange k1 0 5
       "liuhui"
-      #h获取全部字符串
+      # 获取全部字符串
       127.0.0.1:6379> getrange k1 0 -1
       "liuhuiqueshi"
     
     - strlen
     
       ```shell
-      #获取字符串长度
+      # 获取字符串长度
       127.0.0.1:6379> strlen k1
       (integer) 16
       ```
@@ -242,13 +250,13 @@
     - INCR
 
       ```shell
-      #初始化
+      # 初始化
       127.0.0.1:6379> set k1 99
       OK
-      #把当前数值增加1
+      # 把当前数值增加1
       127.0.0.1:6379> incr k1
       (integer) 100
-      #把当前数值增加10
+      # 把当前数值增加10
       127.0.0.1:6379> incrby k1 10
       (integer) 110
       ```
@@ -256,10 +264,10 @@
     - DECR
 
       ```shell
-      #把当前数值减1
+      # 把当前数值减1
       127.0.0.1:6379> decr k1
       (integer) 109
-      #把当前数值减10
+      # 把当前数值减10
       127.0.0.1:6379> decrby k1 10
       (integer) 99
       ```
@@ -267,11 +275,11 @@
     - INCRBYFLOAT
 
       ```shell
-      #把当前数值加0.5
+      # 把当前数值加0.5
       127.0.0.1:6379> incrbyfloat k1 0.5
       "99.5"
-      #把当前数值减0.5
-      #注意：没有DECRBYFLOAT方法，只能通过INCRBYFLOAT方法，将增加的数值设置为负数
+      # 把当前数值减0.5
+      # 注意：没有DECRBYFLOAT方法，只能通过INCRBYFLOAT方法，将增加的数值设置为负数
       127.0.0.1:6379> incrbyfloat k1 -0.5
       "99"
       ```
@@ -289,12 +297,12 @@
     - setbit
 
       ```shell
-      #设置位图的值，设置k1位图的第1位为1，即0100 0000
+      # 设置位图的值，设置k1位图的第1位为1，即0100 0000
       127.0.0.1:6379> setbit k1 1 1
       (integer) 0
       127.0.0.1:6379> get k1
       "@"
-      #设置位图的值，设置k1位图的第7位为1，即0100 0001
+      # 设置位图的值，设置k1位图的第7位为1，即0100 0001
       127.0.0.1:6379> setbit k1 7 1
       (integer) 0
       127.0.0.1:6379> get k1
@@ -304,10 +312,10 @@
     - strlen
 
       ```shell
-      #查看位图的长度（字节长度）
+      # 查看位图的长度（字节长度）
       127.0.0.1:6379> strlen k1
       (integer) 1
-      #设置位图的值，设置k1位图的第9位为1，即0100 0001 0100 0000，此时k1的长度应该为2
+      # 设置位图的值，设置k1位图的第9位为1，即0100 0001 0100 0000，此时k1的长度应该为2
       127.0.0.1:6379> setbit k1 9 1
       (integer) 0
       127.0.0.1:6379> strlen k1
@@ -317,13 +325,13 @@
     - bitpos
 
       ```shell
-      #查看k1位图，第0个字节，第一个出现1的位置
+      # 查看k1位图，第0个字节，第一个出现1的位置
       127.0.0.1:6379> bitpos k1 1 0 0
       (integer) 1
-      #查看k1位图，第1个字节，第一个出现1的位置
+      # 查看k1位图，第1个字节，第一个出现1的位置
       127.0.0.1:6379> bitpos k1 1 1 1
       (integer) 9
-      #查看k1位图，第0-1个字节，第一个出现1的位置
+      # 查看k1位图，第0-1个字节，第一个出现1的位置
       127.0.0.1:6379> bitpos k1 1 0 1
       (integer) 1
       ```
@@ -331,13 +339,13 @@
     - bitcount
 
       ```shell
-      #查看k1位图，第0个字节，1出现的次数
+      # 查看k1位图，第0个字节，1出现的次数
       127.0.0.1:6379> bitcount k1 0 0
       (integer) 2
-      #查看k1位图，第1个字节，1出现的次数
+      # 查看k1位图，第1个字节，1出现的次数
       127.0.0.1:6379> bitcount k1 1 1
       (integer) 1
-      #查看k1位图，第0-1个字节，1出现的次数
+      # 查看k1位图，第0-1个字节，1出现的次数
       127.0.0.1:6379> bitcount k1 0 1
       (integer) 3
       ```
@@ -357,12 +365,12 @@
       (integer) 0
       127.0.0.1:6379> get k2
       "B"
-      #位图操作，k1和k2进行与操作，并赋值给k3
+      # 位图操作，k1和k2进行与操作，并赋值给k3
       127.0.0.1:6379> bitop and k3 k1 k2
       (integer) 1
       127.0.0.1:6379> get k3
       "@"
-      #位图操作，k1和k2进行或操作，并赋值给k4
+      # 位图操作，k1和k2进行或操作，并赋值给k4
       127.0.0.1:6379> bitop or k4 k1 k2
       (integer) 1
       127.0.0.1:6379> get k4
@@ -378,19 +386,19 @@
     setbit username1 1 1
     setbit username1 7 1
     setbit username1 354 1
-    #最后两天的登录次数
+    # 最后两天的登录次数
     bitcount username1 -2 -1
 
   - 用户系统
 
     ```shell
-    #setbit 日期 用户id 登录标识
+    # setbit 日期 用户id 登录标识
     setbit 20200101 1 1
     setbit 20200102 1 1
     setbit 20200102 7 1
-    #日期间进行或操作
+    # 日期间进行或操作
     bitop or destkey 20190101 20190102
-    #统计活跃用户数
+    # 统计活跃用户数
     bitcount destkey 0 -1
     ```
 
@@ -407,7 +415,7 @@
   - lpush
 
     ```shell
-    #lpush，从左向右push元素
+    # lpush，从左向右push元素
     127.0.0.1:6379> lpush k1 a b c d e f
     (integer) 6
     ```
@@ -415,7 +423,7 @@
   - rpush
 
     ```shell
-    #rpush，从右向左push元素
+    # rpush，从右向左push元素
     127.0.0.1:6379> rpush k2 a b c d e f
     (integer) 6
     ```
@@ -423,7 +431,7 @@
   - lrange
 
     ```shell
-    #取出元素，从第0位，到-1位
+    # 取出元素，从第0位，到-1位
     127.0.0.1:6379> lrange k1 0 -1
     1) "f"
     2) "e"
@@ -444,7 +452,7 @@
   - lpop
 
     ```shell
-    #从左边弹出元素
+    # 从左边弹出元素
     127.0.0.1:6379> lpop k1
     "f"
     127.0.0.1:6379> lpop k1
@@ -456,7 +464,7 @@
   - rpop
 
     ```shell
-    #从右边弹出元素
+    # 从右边弹出元素
     127.0.0.1:6379> rpop k1
     "a"
     127.0.0.1:6379> rpop k1
@@ -998,7 +1006,7 @@
 
 ## Redis发布订阅
 
-- 使用方法
+- **使用方法**
 
   - 发布者
 
@@ -1049,7 +1057,7 @@
     3) "3"
     ```
 
-- 发布订阅的使用场景：聊天系统
+- **发布订阅的使用场景：聊天系统**
 
   ![avatar](pics/redis_publish_subscibe.png)
 
@@ -1059,7 +1067,7 @@
 
 - <font color='red'>**Redis是单进程的，所以哪个事务的exec先进到执行队列中，会先执行谁的事务**</font>
 
-- 使用方法
+- **使用方法**
 
   ```shell
   127.0.0.1:6379> multi
@@ -1114,20 +1122,20 @@
 
 ## Redis扩展工具
 
-- 布隆过滤器
+- **布隆过滤器**
 
-- 原理
+- **原理**
 
   ![avatar](E:\Private\git\blog\BigData\Redis\pics\redis_bloom.png)
 
-- 使用方法
+- **使用方法**
 
   - 将现在已有的元素，通过映射函数，向bitmap中进行标记
   - 当有新元素需要向数据库发生查询请求时，先通过映射函数进行匹配
   - 当数据库增加元素时，需要完成元素映射函数对bitmap的标记
   - <font color='red'>**布隆过滤器只能概率解决问题，会大概率减少放行和穿透，成本低**</font>
 
-- 布隆过滤器的开启方式
+- **布隆过滤器的开启方式**
 
   ```shell
   #第一种，启动服务加命令行
@@ -1194,7 +1202,7 @@
   (integer) 0
   ```
 
-- Redis如何淘汰过期的keys
+- **Redis如何淘汰过期的keys**
 
   - Redis的key过期有两种方式，被动和主动
     - 被动
@@ -1227,12 +1235,145 @@
 - 回收策略
 
   - noevicition：当内存达到限制，且客户端常事执行会让更多内存被使用的命令时，返回错误
-  - allkeys-lru：尝试回收最少使用的key（LRU）
-  - volatile-lru：尝试回收最少使用的key，但仅限于是设置了过期时间的key
+  - allkeys-lru：尝试回收最久没有使用的key（LRU）
+  - volatile-lru：尝试回收最久没有使用的key，但仅限于是设置了过期时间的key
   - allkeys-random：回收随机的key
   - volatile-random：回收随机的key，但仅限于是设置了过期时间的key
   - volatile-ttl：回收设置了过期时间的键，并且优先回收剩余存活时间较短的key
+  - allkeys-lfu：尝试回收使用频率最小的key（LFU）
+  - volatile-lfu：尝试回收使用频率最小的key（LFU）
 
 
 
+## Redis持久化
+
+### RDB
+
+- **基本介绍**
+
+  - RBD是一种时点性的快照文件，将Redis中的内存数据以快照的形式保存到硬盘中
+
+- **优点**
+
+  - 容灾性好，一个文件可以保存到安全的磁盘
+  - 性能最大化，fork子进程来完成对数据的保存操作，主进程依旧处理客户端命令，主进程不会进行任何IO操作，保证Redis的性能
+  - 过程类似于Java序列化，恢复的速度相对较快
+
+- **缺点**
+
+  - 不支持拉链操作，磁盘中只存在一个dump.rdb，没有历史版本，会对之前的dump.rdb文件进行覆盖
+  - 丢失数据相对较多，时点与时点之间数据容易丢失，比如8点备份了一个rdb，在9点刚要备份一个新的rdb时，服务器宕机，8点~9点的数据全部丢失
+
+- **配置**
+
+  ```shell
+  # Unless specified otherwise, by default Redis will save the DB:
+  #   * After 3600 seconds (an hour) if at least 1 key changed
+  #   * After 300 seconds (5 minutes) if at least 100 keys changed
+  #   * After 60 seconds if at least 10000 keys changed
+  #
+  # You can set these explicitly by uncommenting the three following lines.
+  #
+  
+  # 3600s内，至少有1个key发生变化时，进行持久化
+  save 3600 1
+  # 300s内，至少有100个key发生变化时，进行持久化
+  save 300 100
+  # 60s内，至少有1000个key发生变化时，进行持久化
+  save 60 10000
+  
+  # 持久化的快照文件名称
+  # The filename where to dump the DB
+  dbfilename dump.rdb
+  
+  # 持久化的快照文件目录
+  # Note that you must specify a directory here, not a file name.
+  dir /APP/software/redis_data/data/6379
+  
+  # 一些不是很重要的参数
+  
+  # 持久化出错 是否需要继续工作
+  stop-writes-on-bgsave-error yes
+   
+  # 是否压缩rdb文件 会消耗一些cpu资源
+  rdbcompression yes
+   
+  # 保存rdb文件时，是否校验rdb文件
+  rdbchecksum yes
+  ```
+
+- **触发方式**
+
+  - 手动触发（场景：服务器关机维护）
+    - redis客户端中执行save命令
+  - 当save规则满足时
+  - 执行flushall
+  - 退出redis
+  
+- **实现原理**
+
+  - 父子进程之间的数据共享
+    - 常规思想：在父子进程之间，数据是需要进行隔离的
+    - 进阶思想：在父子进程之间，父进程可以让子进程看到数据，比如说，通过export的环境变量，子进程是可以看到父进程的数据
+    - 父进程对数据的修改，并不会影响子进程的数据，子进程对数据的修改，也不会影响父进程
+  - 写时复制
+    - Redis父进程，通过fork一个子进程对数据进行持久化
+    - 父进程fork一个子进程时，并不是把所有的内存数据复制了一份，而是把指针复制了一份
+      - 比如父进程某个key（k1）的指针指向了内存空间中的某块地址（1），值为3
+      - 那么fork的子进程的这个key（k1）也会指向内存空间中的这块地址（1），值为3
+
+    - 当父进程对这个key（k1）进行修改时（修改为4），父进程不会对当前内存空间中的这块地址（1），进行修改
+    - 而是创建一个新的值，这个值的内存空间地址（2），值为4，然后将父进程的这个key（k1），指向新的内存空间（2）
+    - 这样父进程对数据的修改，并不会对子进程，即RDB持久化进程造成影响
+    - 这样子进程进行持久化的RDB文件，就会是某个时刻的Redis内存数据
+
+
+
+
+### AOF
+
+- **基本介绍**
+
+  - 日志形式的持久化形式，将Redis的写操作记录到文件中
+
+- **优点**
+
+  - 丢失数据少
+  - 可以在AOP文件没被rewrite之前删除一些误操作，比如flushall
+
+- **缺点**
+
+  - 性能较差，恢复数据的速度较慢
+  - 文件会无限叠加，无限变大
+
+- **配置**
+
+  ```shell
+  # 开启AOF持久化，默认是RDB
+  appendonly yes
+  
+  # AOF持久化文件名称
+  appendfilename "appendonly.aof"
+  
+  # appendonly.aof文件大小超过基准的百分之多少之后会触发rewrite
+  auto-aof-rewrite-percentage 100
+  # appendonly.aof文件超过多少字节之后会触发rewrite
+  auto-aof-rewrite-min-size 64mb
+  # 上述两个配置文件分别会在appendonly.aof文件达到64mb,128mb...之后触发rewrite
+  
+  # 总是写入aof，并完成磁盘同步
+  appendfsync always
+  # 每秒写入aof，并完成磁盘同步
+  appendfsync everysec
+  # 写入aof，不等待磁盘同步
+  appendfsync no
+  ```
+
+- **过程**
+
+  - Redis4.0之前
+    - AOF文件的重写，会删除抵销的命令，合并重复的命令，最后形成的是一个纯指令型的日志文件
+  - Redis4.0之后
+    - AOF文件的重写，会将老的数据以RDB形式存储到AOF文件中，增量的数据会以命令的形式append到AOF文件中
+    - 最后形成的是一个RDB和AOF的混合文件
 
