@@ -18,4 +18,6 @@
   - [Hive2.3.9部署](https://github.com/SuperLh/blog/blob/main/BigData/Hive/Hive2.3.9%E9%83%A8%E7%BD%B2.md)
   - [HBase](https://github.com/SuperLh/blog/blob/main/BigData/HBase/HBase.md)
   - [HBase2.3.7部署](https://github.com/SuperLh/blog/blob/main/BigData/HBase/HBase2.3.7%E9%83%A8%E7%BD%B2.md)
+  - [Redis](https://github.com/SuperLh/blog/blob/main/BigData/Redis/Redis.md)
+  - [Redis部署](https://github.com/SuperLh/blog/blob/main/BigData/Redis/Redis6.2.6%E9%83%A8%E7%BD%B2.md)
 
