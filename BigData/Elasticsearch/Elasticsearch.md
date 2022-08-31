@@ -831,9 +831,58 @@
 
   
 
-  
+- 根据日期进行聚合
+
+  ```json
+  GET /ecommerce/_search
+  {
+    "size": 0,
+    "aggs": {
+      "agg_by_time": {
+        "date_histogram": {
+          "field": "order_date",
+          "interval": "month",
+          "format": "yyyy-MM-dd",
+          "min_doc_count": 0,
+          "extended_bounds": {
+            "min": "2022-01-01",
+            "max": "2022-12-01"
+          }
+        }
+      }
+    }
+  }
+  ```
 
 
+
+## ES支持的核心数据类型
+
+- 数字类型
+  - long、integer、short、byte、doubl、float、half_float、scaled_float
+- 日期类型
+  - date
+- boolean类型
+  - boolean
+- 二进制类型
+  - binary
+- 范围
+  - integer_range、float_range、long_range、double_range、date_range
+- 复杂数据类型
+  - 对象类型、嵌套对象类型
+- geo-type
+  - geo_point、geo_line、geo_polygon、geo_shape
+
+
+
+## 正排索引&倒排索引
+
+ ![](E:\Private_LiuHui\Private_git\blog\BigData\Elasticsearch\index.jpeg)
+
+- 正排索引
+  - 以doc为维度，记录doc中出现了哪些词汇
+- 倒排索引
+  - 把doc打碎成一个个词条，以词语为维度，记录在哪些doc中出现过
 
 
 
