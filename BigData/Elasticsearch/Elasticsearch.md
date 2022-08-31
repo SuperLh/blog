@@ -431,19 +431,407 @@
 
   
 
+- Most Field策略：优先返回有更多的field匹配到你关键字的doc
+
+  ```json
+  GET /ecommerce/_search
+  {
+    "query": {
+      "multi_match": {
+        "query": "Underwood",
+        "fields": ["customer_last_name", "customer_full_name"],
+        "type": "most_fields"
+      }
+    }
+  }
+
+
+
+- Cross Field策略：穿越查询，比如一类实体存储时，不能存储在单一的field里面，就需要用到穿越查询来确定搜索数据
+
+  ```json
+  GET /ecommerce/_search
+  {
+    "query": {
+      "multi_match": {
+        "query": "Cairo",
+        "fields": ["geoip.continent_name", "geoip.city_name"],
+        "type": "cross_fields"
+      }
+    }
+  }
+  ```
+
+
+
+- 查询空
+
+  ```json
+  GET /ecommerce/_search
+  {
+    "query": {
+      "match_none": {}
+    }
+  }
+  ```
+
+
+
+- 精确匹配
+
+  ```json
+  GET /ecommerce/_search
+  {
+    "query": {
+      "constant_score": {
+        "filter": {
+          "term": {
+            "customer_full_name.keyword": "Mary Bailey"
+          }
+        }
+      }
+    }
+  }
+  ```
+
+
+
+- 短语搜索：要求doc的这个字段和给定的值完全相同，顺序也不能变
+
+  ```json
+  GET /ecommerce/_search
+  {
+    "query": {
+      "match_phrase": {
+        "products.product_name": "Jersey dress"
+      }
+    }
+  }
+  ```
+
+
+
+- 短语搜索优化：使用slop，让指定短语中的词最多经过slop次移动后如果能匹配某个doc，那么该doc也作为返回结果
+
+  ```json
+  GET /ecommerce/_search
+  {
+    "query": {
+      "match_phrase": {
+        "customer_full_name": "Bailey Mary",
+        "slop": 2
+      }
+    }
+  }
+  ```
+
+
+
+- 短语搜索优化：使用match和match_phrase平衡精准度和召回率
+
+  ```json
+  GET /ecommerce/_search
+  {
+    "query": {
+      "bool": {
+        "must": {
+          "match": {
+            "currency" : "EUR"
+          }
+        },
+        "should": {
+          "match_phrase": {
+            "customer_full_name": "Mary Bailey",
+            "slop": 10
+          }
+        }
+      }
+    }
+  }
+  ```
+
+
+
+- 重新打分机制：使用rescore_query重新打分，提高精准度和召回率
+
+  ```json
+  GET /ecommerce/_search
+  {
+    "query": {
+      "match": {
+        "category": {
+          "query": "Women's Clothing",
+          "minimum_should_match": "50%"
+        }
+      }
+    },
+    "rescore": {
+      "query": {
+        "rescore_query": {
+          "match_phrase": {
+            "customer_full_name": "Mary Bailey"
+          }
+        }
+      },
+      "window_size": 50
+    }
+  }
+  ```
+
   
 
+- 前缀搜索
+
+  ```json
+  GET /ecommerce/_search
+  {
+    "query": {
+      "prefix": {
+        "customer_full_name.keyword": {
+          "value": "Mary",
+          "boost": 5
+        }
+      }
+    }
+  }
+  ```
 
 
 
+- 通配符搜索
 
-https://developer.aliyun.com/article/919943?spm=a2c6h.24874632.expert-profile.113.260e3580zeARSr
+  ```json
+  GET /ecommerce/_search
+  {
+    "query": {
+      "wildcard": {
+        "customer_full_name.keyword": {
+          "value": "Mary*",
+          "boost": 5
+        }
+      }
+    }
+  }
+  ```
 
 
 
+- 正则搜索
+
+  ```json
+  GET /ecommerce/_search
+  {
+    "query": {
+      "regexp": {
+        "products.sku": "ZO04[a-z0-9]+"
+      }
+    }
+  }
+  ```
+
+  
+
+- 模糊查询
+
+  ```json
+  GET /test/_search
+  {
+    "query": {
+      "fuzzy": {
+        "name.姓名.keyword": {
+          "value": "吴彦祖",
+          "fuzziness": 2,
+          "prefix_length": 0
+        }
+      }
+    }
+  }
+  ```
 
 
 
+- 指定要查询的字段
+
+  ```json
+  GET /ecommerce/_search
+  {
+    "query": {
+      "match_all": {}
+    },
+    "_source": ["products._id","products.category"]
+  }
+  ```
+
+  
+
+- filter过滤：过滤器，不进行相关分数的计算，并且可以缓存
+
+  ```json
+  GET /ecommerce/_search
+  {
+    "query": {
+      "bool": {
+        "must": [
+          {"match": {
+            "day_of_week": "Monday"
+          }}
+        ],
+        "filter": [
+          {"range": {
+            "order_id": {
+              "gte": 600000
+            }
+          }}
+        ]
+      }
+    }
+  }
+  ```
+
+  
+
+- 高亮显示
+
+  ```json
+  GET /test/_search
+  {
+    "query": {
+      "match": {
+        "name.姓名": "吴彦祖"
+      }
+    },
+    "highlight": {
+      "fields": {"name.姓名": {}}
+    }
+  }
+  ```
+
+  
+
+### 聚合查询
+
+- 聚合查询核心概念
+  - bucket：聚合操作得到的结果集
+  - metric：对bucket进行分析，比如取最大值，最小值，平均值
+  - 下钻：基于现有分好组的bucket继续分组
+
+
+
+- 聚合统计个数
+
+  ```json
+  // size：
+  GET /ecommerce/_search
+  {
+    "size": 0,
+    "aggs": {
+      "group_by_name": {
+        "terms": {
+          "field": "day_of_week"
+        }
+      }
+    }
+  }
+  ```
+
+
+
+- 先进行搜索，然后再对搜索结果聚合
+
+  ```json
+  GET /ecommerce/_search
+  {
+    "size": 0,
+    "query": {
+      "term": {
+        "geoip.city_name": "Cairo"
+      }
+    }, 
+    "aggs": {
+      "group_by_name": {
+        "terms": {
+          "field": "day_of_week"
+        }
+      }
+    }
+  }
+  ```
+
+
+
+- 按照分组，求取平均值
+
+  ```json
+  GET /ecommerce/_search
+  {
+    "size": 0,
+    "aggs": {
+      "group_by_name": {
+        "terms": {
+          "field": "day_of_week"
+        },
+        "aggs": {
+          "average_price": {
+            "avg": {
+              "field": "products.base_price"
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+
+
+
+- 按照字段进行范围分组，然后在统计各分组下的结果
+
+  ```json
+  GET /ecommerce/_search
+  {
+    "size": 0,
+    "aggs": {
+      "group_by_price": {
+        "range": {
+          "field": "products.base_price",
+          "ranges": [
+            {
+              "from": 10,
+              "to": 20
+            },{
+              "from": 20,
+              "to": 30
+            },{
+              "from": 30,
+              "to": 40
+            },{
+              "from": 40,
+              "to": 50
+            }
+          ]
+        },
+        "aggs": {
+          "group_by_gender": {
+            "terms": {
+              "field": "day_of_week"
+            },
+            "aggs": {
+              "avg_price": {
+                "avg": {
+                  "field": "products.base_price"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+
+  
+
+  
 
 
 
