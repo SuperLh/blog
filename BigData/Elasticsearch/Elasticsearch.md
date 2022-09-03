@@ -886,13 +886,402 @@
 
 
 
+## 分词器
+
+- 创建索引时，指定分词器
+
+  ```json
+  // analyzer : 存储时使用的分词器
+  // search_analyzer : 搜索时使用的分词器
+  {
+      "mappings":{
+          "properties": {
+              "name": {
+                  "type": "text",
+                  "analyzer": "jieba_index",
+                  "search_analyzer": "jieba_search"
+              }
+          }
+      }
+  }
 
 
 
+## Java API
 
+- elasticsearch-rest-high-level-client
 
+  - 依赖
 
+    ```xml
+    <dependencies>
+        <dependency>
+            <groupId>org.elasticsearch</groupId>
+            <artifactId>elasticsearch</artifactId>
+            <version>7.9.3</version>
+        </dependency>
+        <dependency>
+            <groupId>org.elasticsearch.client</groupId>
+            <artifactId>elasticsearch-rest-high-level-client</artifactId>
+            <version>7.9.3</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+            <version>2.8.2</version>
+        </dependency>
+    </dependencies>
+    ```
 
+  - 客户端
+
+    ```java
+    package com.config;
+    
+    import org.apache.http.HttpHost;
+    import org.elasticsearch.client.RestClient;
+    import org.elasticsearch.client.RestHighLevelClient;
+    
+    public class ESConfig {
+        public static RestHighLevelClient esRestClient() {
+    
+            RestHighLevelClient client = new RestHighLevelClient(
+                    RestClient.builder(new HttpHost("localhost", 9200, "http")));
+            return client;
+        }
+    }
+    ```
+
+  - index-api
+
+    ```java
+    package com.index;
+    
+    import com.config.ESConfig;
+    import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
+    import org.elasticsearch.action.support.master.AcknowledgedResponse;
+    import org.elasticsearch.client.RequestOptions;
+    import org.elasticsearch.client.RestHighLevelClient;
+    import org.elasticsearch.client.indices.CreateIndexRequest;
+    import org.elasticsearch.client.indices.CreateIndexResponse;
+    import org.elasticsearch.client.indices.GetIndexRequest;
+    import org.elasticsearch.client.indices.GetIndexResponse;
+    
+    public class IndexAPI {
+    
+        private static RestHighLevelClient client = ESConfig.esRestClient();
+    
+        public static void createIndex() throws Exception {
+    
+            CreateIndexRequest request = new CreateIndexRequest("create_index_test");
+    
+            CreateIndexResponse response = client.indices().create(request, RequestOptions.DEFAULT);
+    
+            boolean acknowledged = response.isAcknowledged();
+    
+            System.out.println("操作状态 = " + acknowledged);
+        }
+    
+        public static void getIndex() throws Exception {
+    
+            GetIndexRequest request = new GetIndexRequest("admin");
+    
+            GetIndexResponse response = client.indices().get(request, RequestOptions.DEFAULT);
+    
+            System.out.println(response.getAliases());
+            System.out.println(response.getMappings());
+            System.out.println(response.getSettings());
+        }
+    
+        public static void deleteIndex() throws Exception {
+    
+            DeleteIndexRequest request = new DeleteIndexRequest("create_index_test");
+    
+            AcknowledgedResponse response = client.indices().delete(request, RequestOptions.DEFAULT);
+    
+            System.out.println("操作状态 = " + response.isAcknowledged());
+        }
+    }
+    
+    ```
+
+  - doc-api
+
+    ```java
+    package com.index;
+    
+    import com.config.ESConfig;
+    import org.elasticsearch.action.bulk.BulkRequest;
+    import org.elasticsearch.action.bulk.BulkResponse;
+    import org.elasticsearch.action.delete.DeleteRequest;
+    import org.elasticsearch.action.delete.DeleteResponse;
+    import org.elasticsearch.action.get.GetRequest;
+    import org.elasticsearch.action.get.GetResponse;
+    import org.elasticsearch.action.index.IndexRequest;
+    import org.elasticsearch.action.index.IndexResponse;
+    import org.elasticsearch.action.update.UpdateRequest;
+    import org.elasticsearch.action.update.UpdateResponse;
+    import org.elasticsearch.client.RequestOptions;
+    import org.elasticsearch.client.RestHighLevelClient;
+    import org.elasticsearch.common.xcontent.XContentType;
+    
+    public class DocAPI {
+    
+        private static RestHighLevelClient client = ESConfig.esRestClient();
+    
+        public static void insertDoc() throws Exception {
+    
+            IndexRequest request = new IndexRequest();
+    
+            request.index("create_index_test").id("1001");
+    
+            String dataJSON = "{\"id\":1001,\"name\":\"name1001\"}";
+    
+            request.source(dataJSON, XContentType.JSON);
+    
+            IndexResponse response = client.index(request, RequestOptions.DEFAULT);
+    
+            System.out.println("_index:" + response.getIndex());
+            System.out.println("_id:" + response.getId());
+            System.out.println("_result:" + response.getResult());
+        }
+    
+        public static void updateDoc() throws Exception {
+    
+            UpdateRequest request = new UpdateRequest();
+    
+            request.index("create_index_test").id("1001");
+    
+            request.doc(XContentType.JSON, "name", "name1002");
+    
+            UpdateResponse response = client.update(request, RequestOptions.DEFAULT);
+    
+            System.out.println("_index:" + response.getIndex());
+            System.out.println("_id:" + response.getId());
+            System.out.println("_result:" + response.getResult());
+        }
+    
+        public static void getDoc() throws Exception {
+    
+            GetRequest request = new GetRequest().index("create_index_test").id("1001");
+    
+            GetResponse response = client.get(request, RequestOptions.DEFAULT);
+    
+            System.out.println("_index:" + response.getIndex());
+            System.out.println("_type:" + response.getType());
+            System.out.println("_id:" + response.getId());
+            System.out.println("source:" + response.getSourceAsString());
+        }
+    
+        public static void deleteDoc() throws Exception {
+    
+            DeleteRequest request = new DeleteRequest().index("create_index_test").id("1001");
+    
+            DeleteResponse response = client.delete(request, RequestOptions.DEFAULT);
+    
+            System.out.println(request.toString());
+        }
+    
+        public static void batchInsert() throws Exception {
+    
+            BulkRequest request = new BulkRequest();
+            request.add(
+                    new IndexRequest().index("create_index_test").id("1001").source(XContentType.JSON, "name", "zhangsan"));
+            request.add(
+                    new IndexRequest().index("create_index_test").id("1002").source(XContentType.JSON, "name", "lisi"));
+            request.add(
+                    new IndexRequest().index("create_index_test").id("1003").source(XContentType.JSON, "name", "wangwu"));
+    
+            BulkResponse response = client.bulk(request, RequestOptions.DEFAULT);
+    
+            System.out.println("took:" + response.getTook());
+            System.out.println("items:" + response.getItems());
+        }
+    
+        public static void batchDelete() throws Exception {
+    
+            BulkRequest request = new BulkRequest();
+    
+            request.add(new DeleteRequest().index("create_index_test").id("1001"));
+            request.add(new DeleteRequest().index("create_index_test").id("1002"));
+            request.add(new DeleteRequest().index("create_index_test").id("1003"));
+    
+            BulkResponse response = client.bulk(request, RequestOptions.DEFAULT);
+    
+            System.out.println("took:" + response.getTook());
+            System.out.println("items:" + response.getItems());
+        }
+    }
+    ```
+
+  - query-api
+
+    ```java
+    package com.index;
+    
+    import com.config.ESConfig;
+    import org.elasticsearch.action.search.SearchRequest;
+    import org.elasticsearch.action.search.SearchResponse;
+    import org.elasticsearch.client.RequestOptions;
+    import org.elasticsearch.client.RestHighLevelClient;
+    import org.elasticsearch.index.query.BoolQueryBuilder;
+    import org.elasticsearch.index.query.QueryBuilders;
+    import org.elasticsearch.index.query.RangeQueryBuilder;
+    import org.elasticsearch.search.SearchHit;
+    import org.elasticsearch.search.SearchHits;
+    import org.elasticsearch.search.aggregations.AggregationBuilders;
+    import org.elasticsearch.search.builder.SearchSourceBuilder;
+    import org.elasticsearch.search.sort.SortOrder;
+    
+    public class QueryAPI {
+    
+        private static RestHighLevelClient client = ESConfig.esRestClient();
+    
+        public static void page() throws Exception {
+    
+            SearchRequest request = new SearchRequest();
+    
+            request.indices("ecommerce");
+    
+            SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
+            sourceBuilder.query(QueryBuilders.matchAllQuery());
+    
+            sourceBuilder.from(0);
+            sourceBuilder.size(2);
+    
+            request.source(sourceBuilder);
+    
+            SearchResponse response = client.search(request, RequestOptions.DEFAULT);
+    
+            SearchHits hits = response.getHits();
+            System.out.println("took:" + response.getTook());
+            System.out.println("timeout:" + response.isTimedOut());
+            System.out.println("total:" + hits.getTotalHits());
+            System.out.println("MaxScore:" + hits.getMaxScore());
+            System.out.println("hits========>>");
+    
+            for (SearchHit hit : hits) {
+                System.out.println(hit.getSourceAsString());
+            }
+        }
+    
+        public static void sort() throws Exception {
+    
+            SearchRequest request = new SearchRequest();
+    
+            request.indices("ecommerce");
+    
+            SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
+            sourceBuilder.query(QueryBuilders.matchAllQuery());
+    
+            sourceBuilder.sort("products.base_price", SortOrder.ASC);
+    
+            request.source(sourceBuilder);
+    
+            SearchResponse response = client.search(request, RequestOptions.DEFAULT);
+    
+            SearchHits hits = response.getHits();
+            System.out.println("took:" + response.getTook());
+            System.out.println("timeout:" + response.isTimedOut());
+            System.out.println("total:" + hits.getTotalHits());
+            System.out.println("MaxScore:" + hits.getMaxScore());
+            System.out.println("hits========>>");
+    
+            for (SearchHit hit : hits) {
+                System.out.println(hit.getSourceAsString());
+            }
+        }
+    
+        public static void bool() throws Exception {
+    
+            SearchRequest request = new SearchRequest();
+    
+            request.indices("ecommerce");
+    
+            SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
+            sourceBuilder.query(QueryBuilders.matchAllQuery());
+    
+            BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
+    
+            boolQueryBuilder.must(QueryBuilders.matchQuery("currency", "EUR"));
+    
+            request.source(sourceBuilder);
+    
+            SearchResponse response = client.search(request, RequestOptions.DEFAULT);
+    
+            SearchHits hits = response.getHits();
+            System.out.println("took:" + response.getTook());
+            System.out.println("timeout:" + response.isTimedOut());
+            System.out.println("total:" + hits.getTotalHits());
+            System.out.println("MaxScore:" + hits.getMaxScore());
+            System.out.println("hits========>>");
+    
+            for (SearchHit hit : hits) {
+                System.out.println(hit.getSourceAsString());
+            }
+        }
+    
+        public static void range() throws Exception {
+    
+            SearchRequest request = new SearchRequest();
+    
+            request.indices("ecommerce");
+    
+            SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
+    
+            RangeQueryBuilder rangeQueryBuilder = QueryBuilders.rangeQuery("products.base_price");
+    
+            rangeQueryBuilder.gte(10);
+            rangeQueryBuilder.lte(20);
+    
+            sourceBuilder.query(rangeQueryBuilder);
+            request.source(sourceBuilder);
+    
+            SearchResponse response = client.search(request, RequestOptions.DEFAULT);
+    
+            SearchHits hits = response.getHits();
+            System.out.println("took:" + response.getTook());
+            System.out.println("timeout:" + response.isTimedOut());
+            System.out.println("total:" + hits.getTotalHits());
+            System.out.println("MaxScore:" + hits.getMaxScore());
+            System.out.println("hits========>>");
+    
+            for (SearchHit hit : hits) {
+                System.out.println(hit.getSourceAsString());
+            }
+        }
+    
+        public static void agg() throws Exception {
+    
+            SearchRequest request = new SearchRequest();
+    
+            request.indices("ecommerce");
+    
+            SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
+            sourceBuilder.aggregation(AggregationBuilders.max("maxPrice").field("products.base_price"));
+    
+            request.source(sourceBuilder);
+    
+            SearchResponse response = client.search(request, RequestOptions.DEFAULT);
+    
+            System.out.println(response);
+            SearchHits hits = response.getHits();
+            System.out.println("took:" + response.getTook());
+            System.out.println("timeout:" + response.isTimedOut());
+            System.out.println("total:" + hits.getTotalHits());
+            System.out.println("MaxScore:" + hits.getMaxScore());
+            System.out.println("aggregations :" + response.getAggregations());
+            System.out.println("hits========>>");
+    
+            for (SearchHit hit : hits) {
+                System.out.println(hit.getSourceAsString());
+            }
+        }
+    }
+    
+    ```
+
+    
 
 
 
