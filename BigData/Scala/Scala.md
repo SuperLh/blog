@@ -138,6 +138,78 @@
 - class的个性化构造（val成员变量）
 
   ```scala
+  object Test {
+    def main(args: Array[String]): Unit = {
+      var people = new People(14)
+      people.printMsg()
+    }
+  }
+  
+  class People(age: Int) {
+  
+    def printMsg(): Unit = {
+      println(s"---$age---")
+    }
+  }
+  
+  // 以上代码输出结果
+  // ---14---
+  ```
+
+- 伴生
+
+  ```scala
+  object Test {
+  
+    private val name = "bs"
+  
+    private var age = 10
+  
+    def main(args: Array[String]): Unit = {
+      var test = new Test()
+      test.printMsg()
+    }
+  
+    def setName : Unit = {
+      age = age + 14
+    }
+  }
+  
+  class Test() {
+  
+    def printMsg(): Unit = {
+  
+      Test.setName
+      println(s"---${Test.name} ${Test.age}---")
+    }
+  }
+  
+  // 当object名称与class名称一致时，class名称可以调用object的变量和方法
+  // 以上代码输出结果
+  // ---bs 24---
+  
+  object Test {
+  
+    private val name = "object:name"
+  
+    def main(args: Array[String]): Unit = {
+      var test = new Test()
+      test.printMsg()
+    }
+  }
+  
+  class Test() {
+  
+    private val name = "class:name"
+  
+    def printMsg(): Unit = {
+      println(s"---${Test.name}---")
+    }
+  }
+  
+  // 当object和class的成员变量一致时，输出的结果会是object类的成员变量
+  // 以上代码输出结果
+  // ---object:name---
   ```
 
   
