@@ -212,7 +212,68 @@
   // ---object:name---
   ```
 
+
+
+
+## 判断
+
+- if/else
+
+  ```scala
+  object Test {
   
+    def main(args: Array[String]): Unit = {
+      var a = 2
+      if (a <= 0) {
+        println(s"$a<=0")
+      } else {
+        println(s"$a>0")
+      }
+    }
+  }
+  ```
+
+
+
+## 循环
+
+- while
+
+  ```scala
+  object Test {
+  
+    def main(args: Array[String]): Unit = {
+      var a = 1
+      while (a < 10) {
+        println(a)
+        a = a + 1
+      }
+    }
+  }
+  ```
+
+- for
+
+  ```scala
+  object Test {
+  
+    def main(args: Array[String]): Unit = {
+  
+      println("---创建seq---")
+      var seq = 1 until 10
+      seq.foreach(println)
+  
+      println("---遍历seq---")
+      for (i <- seq if (i % 2 ==0)) {
+        println(i)
+      }
+  
+      println("---收集seq---")
+      var seq1 = for (i <- 1 to 10) yield {i + 8}
+      seq1.foreach(println)
+    }
+  }
+  ```
 
 ## 函数
 
