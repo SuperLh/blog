@@ -214,7 +214,225 @@
 
   
 
+## 函数
 
+- 递归函数
+
+  ```scala
+  object Test {
+  
+    def main(args: Array[String]): Unit = {
+      val i = fun(4)
+      println(i)
+    }
+  
+    def fun(num : Int) : Int = {
+      if (num == 1) {
+        num
+      } else {
+        num * fun(num - 1)
+      }
+    }
+  }
+  ```
+
+- 默认值函数
+
+  ```scala
+  object Test {
+  
+    def main(args: Array[String]): Unit = {
+      fun(a = 4)
+      fun(b = "cde")
+      fun()
+    }
+  
+    def fun(a : Int = 8, b : String = "abc"): Unit = {
+      println(s"$a$b")
+    }
+  }
+  
+  // 输出结果如下
+  // 4abc
+  // 8cde
+  // 8abc
+  ```
+
+- 匿名函数
+
+  ```scala
+  object Test {
+  
+    def main(args: Array[String]): Unit = {
+      var result = fun(3, 4)
+      println(result)
+    }
+  
+    // 签名：(Int, Int) => Int (参数类型列表) => 返回值类型 
+    // 匿名函数：(a : Int, b : Int) => { a+b } (参数实现列表) => 函数体
+    var fun : (Int, Int) => Int = (a : Int, b : Int) => {
+      a + b
+    }
+  }
+  ```
+
+- 嵌套函数
+
+  ```scala
+  object Test {
+  
+    def main(args: Array[String]): Unit = {
+      fun01("test")
+    }
+  
+    def fun01(a : String) : Unit = {
+      def fun02() : Unit = {
+        println(a)
+      }
+      fun02()
+    }
+  }
+  ```
+
+- 偏应用函数
+
+  ```scala
+  import java.util.Date
+  
+  object Test {
+  
+    def main(args: Array[String]): Unit = {
+  
+      // 定义一个正常日志函数
+      var info = fun(_ : Date, "info", _ : String)
+      // 定义一个异常日志函数
+      var error = fun(_ : Date, "error", _ : String)
+  
+      info(new Date, "这是一条正常日志")
+      error(new Date, "这是一条错误日志")
+    }
+  
+    def fun(date : Date, types : String, msg : String) : Unit = {
+      println(s"$date\t$types\t$msg")
+    }
+  }
+  
+  ```
+
+- 可变函数
+
+  ```scala
+  object Test {
+  
+    def main(args: Array[String]): Unit = {
+      fun(1,2,3,4,5)
+    }
+  
+    def fun(a : Int*) : Unit = {
+  
+      println("---第一次遍历---")
+      for (e <- a ) {
+        println(e)
+      }
+  
+      println("---第二次遍历---")
+      a.foreach( (x:Int) => { println(x) })
+  
+      println("---第三次遍历---")
+      a.foreach(println(_))
+  
+      println("---第四次遍历---")
+      a.foreach(println)
+    }
+  }
+  ```
+
+- 高阶函数（函数作为参数）
+
+  ```scala
+  object Test {
+  
+    def main(args: Array[String]): Unit = {
+      computer(3, 8, _ * _)
+    }
+    
+    //函数作为参数
+    def computer(a: Int, b: Int, f: (Int, Int) => Int): Unit = {
+      val res: Int = f(a, b)
+      println(res)
+    }
+  }
+  ```
+
+- 高阶函数（函数作为返回值）
+
+  ```scala
+  object Test {
+  
+    def main(args: Array[String]): Unit = {
+      computer(3, 8, factory("+"))
+      computer(3, 8, factory("-"))
+    }
+  
+    def computer(a: Int, b: Int, f: (Int, Int) => Int): Unit = {
+      val res: Int = f(a, b)
+      println(res)
+    }
+  
+    def factory(i: String): (Int, Int) => Int = {
+      def plus(x: Int, y: Int): Int = {
+        x + y
+      }
+      def minus(x : Int, y : Int) : Int = {
+        x - y
+      }
+      if (i.equals("+")) {
+        plus
+      } else {
+        minus
+      }
+    }
+  }
+  ```
+
+- 柯里化
+
+  ```scala
+  object Test {
+  
+    def main(args: Array[String]) : Unit = {
+      fun(1,2,3)("a","b","c")
+    }
+  
+    def fun(a : Int*)(b : String*) : Unit = {
+      a.foreach(println)
+      b.foreach(println)
+    }
+  }
+  ```
+
+- 方法的赋值引用（不进行调用）
+
+  ```scala
+  object Test {
+  
+    def main(args: Array[String]): Unit = {
+  
+      println("赋值引用")
+      val fun = hello _
+      println("调用")
+      fun()
+    }
+  
+    def hello() : Unit = {
+      println("hello object")
+    }
+  }
+  ```
+
+  
+
+  
 
 
 
